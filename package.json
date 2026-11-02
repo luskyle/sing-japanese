@@ -1,0 +1,29 @@
+{
+  "name": "sing-japanese",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "tauri": "tauri",
+    "desktop": "tauri dev",
+    "desktop:build": "tauri build --bundles deb",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:desktop": "node scripts/test-desktop.mjs",
+    "resources:download": "node scripts/download-audio.mjs",
+    "resources:verify": "node scripts/verify-audio.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "~2.11.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@tauri-apps/cli": "~2.11.0",
+    "typescript": "~5.9.0",
+    "vite": "^6.4.0",
+    "vitest": "^3.2.0"
+  }
+}
