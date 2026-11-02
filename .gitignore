@@ -4,5 +4,7 @@ src-tauri/target/
 src-tauri/gen/schemas/
 test-results/
 playwright-report/
+release-assets/
+downloaded-artifacts/
 .native-deps/
 *.tmp

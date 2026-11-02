@@ -60,6 +60,35 @@ Linux 可执行文件：`src-tauri/target/release/sing-japanese`。
 Debian 安装包：`src-tauri/target/release/bundle/deb/`。
 安装后的桌面入口名为“假名小调”。其他平台需在对应系统配置工具链后构建，尚未验证。
 
+## GitHub CI / 发布
+
+推送 `main`、创建 PR 或手动运行 **Desktop CI** 时，先执行前端测试、离线音频校验、
+生产构建和 Chromium 测试，再进行三平台 Rust 测试、Clippy 和安装包构建：
+
+| 平台 | 安装包 |
+| --- | --- |
+| Linux x64（Ubuntu 22.04） | `.deb`、`.AppImage` |
+| Windows x64 | NSIS `.exe` |
+| macOS Intel + Apple Silicon | Universal `.dmg` |
+
+每个平台的安装包作为 Actions artifact 保留 14 天。Linux 还会通过虚拟显示和音频设备
+测试实际桌面应用的发音播放、Rust 保存和重启恢复。CI 使用仓库中已保存的音频，不重新下载教学素材。
+
+发布步骤：
+
+1. 同步修改 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、
+   `src-tauri/Cargo.lock` 中本项目版本及 `src-tauri/tauri.conf.json` 的版本。
+2. 提交并推送代码，然后推送匹配的标签，例如 `git tag v0.1.0 && git push origin v0.1.0`。
+3. **Desktop Release** 检查标签与版本一致，复用整套 CI；所有平台成功后才创建 Release 草稿，
+   附四个安装包与 `SHA256SUMS.txt`。
+4. 在 GitHub Releases 检查草稿和安装包，再点击发布。也可在标签对应的 ref 上手动运行该工作流；
+   在分支上运行会明确失败。已有同名 Release 不会自动覆盖。
+
+当前发布不需要手动添加仓库 secrets，只有创建草稿的 job 拥有 `contents: write`；
+构建 job 不接收签名密钥，第三方 Actions 固定到提交 SHA。
+Windows / macOS 安装包暂未代码签名，macOS 未公证，系统可能显示安全警告；
+SHA-256 仅验证文件完整性，不代替签名。当前没有应用内自动更新功能。
+
 如果此工作区曾使用 `.native-deps/` 局部解包开发依赖，可在同一台机器临时执行：
 
 ```sh

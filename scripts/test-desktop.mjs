@@ -51,7 +51,7 @@ async function open() {
   const created = await request("/session", {
     capabilities: {
       alwaysMatch: {
-        "tauri:options": { application: resolve("src-tauri/target/release/sing-japanese") },
+        "tauri:options": { application: resolve(process.env.TAURI_TEST_BINARY ?? "src-tauri/target/release/sing-japanese") },
       },
     },
   });

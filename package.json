@@ -10,7 +10,7 @@
     "tauri": "tauri",
     "desktop": "tauri dev",
     "desktop:build": "tauri build --bundles deb",
-    "test": "vitest run",
+    "test": "vitest run && node --test scripts/release.test.mjs",
     "test:e2e": "playwright test",
     "test:desktop": "node scripts/test-desktop.mjs",
     "resources:download": "node scripts/download-audio.mjs",
