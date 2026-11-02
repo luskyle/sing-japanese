@@ -3,8 +3,9 @@ import { kana, groupNames, pronunciationNote, type Group, type Kana, type Script
 import { blankCard, cardKey, emptyProgress, makeQuestion, record, summarize, type Progress, type Question } from "./learning";
 import { desktop, loadProgress, saveProgress } from "./storage";
 import { PronunciationPlayer } from "./audio";
+import { lyricsView, updateLyricsInput, toggleLyricsReadings, annotateLyrics } from "./lyrics";
 
-type View = "learn" | "quiz" | "guide" | "resources";
+type View = "home" | "learn" | "quiz" | "guide" | "resources" | "lyrics";
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) throw new Error("缺少应用挂载节点");
 const app = root;
@@ -13,7 +14,7 @@ let progress = emptyProgress();
 let script: Script = "hiragana";
 let group: Group = "basic";
 let row = "all";
-let view: View = "learn";
+let view: View = "home";
 let selected = kana[0];
 let showRomaji = true;
 let rate = 1;
@@ -251,7 +252,44 @@ function resourceView(): string {
     <h3>你的学习记录</h3><p>${desktop ? "桌面版通过 Rust 保存到系统应用数据目录中的 progress.json，使用临时文件原子替换。更新应用不会主动删除记录。" : "你正在浏览器预览版中，记录保存在此浏览器的 localStorage；与桌面版记录互不相通，清理网站数据会删除预览版记录。"}</p>
     <h3>范围与限制</h3><p>单个假名读音并不能涵盖连读、音高重音、方言、助词变读及歌唱发音。录音响度可能略有差异；播放失败时应用会明确提示，不会用合成声音静默替代。</p>
     <details><summary>查看逐条来源（离线清单）</summary><div id="resource-list"></div></details>
+    <details><summary>IPADIC 日语注音词典许可声明</summary><pre class="license-text" id="dictionary-license"></pre></details>
   </section>`;
+}
+
+function home(): string {
+  const stats = summarize(progress, "hiragana");
+  return `<section class="home-path" aria-label="学习与使用路径">
+    <article class="feature-card kana-entry">
+      <div class="eyebrow">01 / 先学基础</div>
+      <div class="feature-symbol" lang="ja" aria-hidden="true">あ <span>ア</span></div>
+      <h2>先认识假名</h2>
+      <p>从听音和认字开始，让平假名、片假名慢慢变熟悉。</p>
+      <div class="feature-meta">71 条真人发音 · 平假名已听 ${stats.heard} / 71</div>
+      <button class="primary" data-view="learn" aria-label="认识假名">开始学习假名 →</button>
+      <button class="text-button" data-view="quiz">听辨练习</button>
+    </article>
+    <article class="feature-card lyrics-entry">
+      <div class="eyebrow">02 / 核心功能</div>
+      <div class="ruby-preview" lang="ja" aria-hidden="true"><ruby>歌<rt>うた</rt></ruby>を<ruby>読<rt>よ</rt></ruby>もう</div>
+      <h2>给喜欢的歌词，标上假名。</h2>
+      <p>粘贴日语歌词，自动在汉字词上方添加振假名。保留原文与换行，让下一句更容易读出来。</p>
+      <div class="feature-meta">本地词典 · 无需模型 · 无需联网</div>
+      <button class="primary" data-view="lyrics" aria-label="歌词注音">打开歌词注音 →</button>
+      <small>已经认识假名？可以直接从这里开始。</small>
+    </article>
+  </section>
+  <section class="home-extras" aria-label="更多帮助">
+    <button data-view="guide" aria-label="学习指南"><strong>学习指南</strong><span>了解假名、音拍与练习方法 →</span></button>
+    <button data-view="resources" aria-label="本地资源"><strong>本地资源</strong><span>查看录音来源、词典许可与数据说明 →</span></button>
+  </section>`;
+}
+
+function navigate(next: View): void {
+  resetQuestion();
+  view = next;
+  render();
+  window.scrollTo({ top: 0 });
+  document.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
 }
 
 function render(): void {
@@ -267,30 +305,28 @@ function render(): void {
   }
   const stats = summarize(progress, script);
   const titles: Record<View, [string, string, string]> = {
+    home: ["首页", "先认识假名，再读懂歌词。", "从一个声音开始，把喜欢的日语歌变得更容易读。"],
     learn: ["认识假名", "让每一个字，都有声音。", "从听见，到认出。今天先学一小行。"],
     quiz: ["听辨练习", "让耳朵，带你找到答案。", "离开表格顺序，看看你真正记住了多少。"],
     guide: ["学习指南", "不急着背完，先建立连接。", "一点发音常识，一条更可靠的学习路径。"],
     resources: ["本地资源", "好的学习，不依赖网络。", "来源透明，声音与进度都留在你的设备。"],
+    lyrics: ["歌词注音", "让汉字，也能读出来。", "粘贴日语文本，离线生成常规振假名。"],
   };
   app.innerHTML = `
-    <aside class="sidebar">
+    <div class="app-bar">
       <a class="brand" href="#" aria-label="假名小调首页"><span class="brand-mark" lang="ja">あ</span><div>假名小调<small>SING JAPANESE</small></div></a>
-      <div class="sidebar-label">你的日语第一步</div>
-      <nav aria-label="主导航">${(["learn", "quiz", "guide", "resources"] as View[]).map((name, index) =>
-        `<button data-view="${name}" class="${view === name ? "active" : ""}" ${view === name ? 'aria-current="page"' : ""}><span class="nav-icon" aria-hidden="true">${["あ", "♫", "≡", "▤"][index]}</span>${titles[name][0]}</button>`).join("")}</nav>
-      <div class="sidebar-note"><span class="leaf">♪</span><p>先把声音记住，<br>再让歌声发生。</p><small>第一章 / 假名与声音</small></div>
       <div class="local-badge"><span></span>${desktop ? "离线桌面版" : "浏览器预览版"}<small id="storage-status"></small></div>
-    </aside>
+    </div>
     <main>
-      <header><span class="breadcrumb">起点 / ${titles[view][0]}</span><span class="chapter">CHAPTER 01 <i></i> KANA</span></header>
-      <div class="page-title"><div><span class="eyebrow">A LITTLE EVERY DAY</span><h1>${titles[view][1]}</h1><p>${titles[view][2]}</p></div><div class="title-stamp" lang="ja">音<span>おと</span></div></div>
+      <header>${view === "home" ? '<span class="breadcrumb">你的日语歌曲学习起点</span>' : '<button class="text-button" data-view="home">← 返回首页</button>'}<span class="chapter">${titles[view][0]} <i></i> SING JAPANESE</span></header>
+      <div class="page-title"><div><span class="eyebrow">${view === "home" ? "FROM KANA TO YOUR FAVORITE SONG" : "A LITTLE EVERY DAY"}</span><h1 tabindex="-1">${titles[view][1]}</h1><p>${titles[view][2]}</p></div><div class="title-stamp" lang="ja">音<span>おと</span></div></div>
       <div id="error-notice" class="error-notice" role="alert" ${errorMessage ? "" : "hidden"}><span>${escape(errorMessage)}</span><button id="retry-storage" ${loadFailed || storageFailed ? "" : "hidden"}>${loadFailed ? "重试读取" : "重试保存"}</button></div>
-      <div class="stats-bar" aria-label="${scriptName()}学习统计">
+      ${view === "learn" || view === "quiz" ? `<div class="stats-bar" aria-label="${scriptName()}学习统计">
         <div><strong id="heard-count">${stats.heard}</strong><span>/ 71 听过的${scriptName()}</span></div>
         <div><strong id="familiar-count">${stats.familiar}</strong><span>连续答对 ≥ 3 次</span></div>
         <div><strong id="accuracy-count">${stats.accuracy === null ? "—" : `${stats.accuracy}%`}</strong><span>累计听辨正确率</span></div>
-      </div>
-      <fieldset class="workspace" ${loadFailed ? "disabled" : ""}>${view === "learn" ? learn() : view === "quiz" ? quiz() : view === "guide" ? guide() : resourceView()}</fieldset>
+      </div>` : ""}
+      <fieldset class="workspace" ${loadFailed ? "disabled" : ""}>${view === "home" ? home() : view === "learn" ? learn() : view === "quiz" ? quiz() : view === "lyrics" ? lyricsView() : view === "guide" ? guide() : resourceView()}</fieldset>
       <footer>小步前进，声音会慢慢变熟悉。<span>71 条本地真人录音 · 无需登录</span></footer>
     </main>`;
   updateStatus();
@@ -312,9 +348,7 @@ app.addEventListener("click", (event) => {
   if (!button || button instanceof HTMLButtonElement && button.disabled) return;
   if (button.classList.contains("brand")) {
     event.preventDefault();
-    resetQuestion();
-    view = "learn";
-    render();
+    navigate("home");
     return;
   }
   if (button.id === "retry-storage") {
@@ -326,10 +360,12 @@ app.addEventListener("click", (event) => {
     }
     return;
   }
+  if (button.id === "annotate-lyrics") {
+    void annotateLyrics(render);
+    return;
+  }
   if (button.dataset.view) {
-    resetQuestion();
-    view = button.dataset.view as View;
-    render();
+    navigate(button.dataset.view as View);
   } else if (button.dataset.script) {
     resetQuestion();
     script = button.dataset.script as Script;
@@ -344,9 +380,7 @@ app.addEventListener("click", (event) => {
   } else if (button.id === "replay") {
     void play(view === "quiz" && question ? question.target : selected, view === "quiz");
   } else if (button.id === "go-quiz") {
-    resetQuestion();
-    view = "quiz";
-    render();
+    navigate("quiz");
   } else if (button.id === "start-quiz" || button.id === "next-question") {
     nextQuestion();
   } else if (button.dataset.answer && question && answer === null && audioReady) {
@@ -361,9 +395,20 @@ app.addEventListener("click", (event) => {
   }
 });
 
+app.addEventListener("input", (event) => {
+  if (event.target instanceof HTMLTextAreaElement && event.target.id === "lyrics-input") {
+    updateLyricsInput(event.target.value);
+  }
+});
+
 app.addEventListener("change", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLSelectElement || target instanceof HTMLInputElement)) return;
+  if (target.id === "lyrics-readings" && target instanceof HTMLInputElement) {
+    toggleLyricsReadings(target.checked);
+    render();
+    return;
+  }
   if (target.id === "rate") {
     rate = Number(target.value);
     resetAudio();
@@ -410,6 +455,15 @@ async function showResourceList(): Promise<void> {
   if (!container) return;
   container.innerHTML = `<ul class="resource-list">${manifestEntries.map((item) =>
     `<li><b lang="ja">${escape(item.hiragana)} / ${escape(item.katakana)}</b> <span>${escape(item.id)} · ${escape(item.author)} · ${escape(item.license)}</span><small>${escape(item.sourcePage)}</small></li>`).join("")}</ul>`;
+  try {
+    const response = await fetch("/licenses/IPADIC-NOTICE.txt");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const text = await response.text();
+    const license = document.querySelector("#dictionary-license");
+    if (license) license.textContent = text;
+  } catch (error) {
+    reportError(`无法读取词典许可声明：${String(error)}`, "resources");
+  }
 }
 
 async function initialize(): Promise<void> {

@@ -6,12 +6,14 @@ test("offline chart, real pronunciation playback and persistent script-specific 
     if (new URL(request.url()).origin !== "http://127.0.0.1:1420") foreignRequests.push(request.url());
   });
   await page.goto("/");
+  await page.getByRole("button", { name: "认识假名", exact: true }).click();
   await expect(page.getByRole("heading", { name: "让每一个字，都有声音。" })).toBeVisible();
   await expect(page.locator("[data-kana]")).toHaveCount(46);
   await page.getByRole("button", { name: "学习 あ", exact: true }).click();
   await expect(page.locator("#heard-count")).toHaveText("1", { timeout: 15000 });
   await expect(page.locator("#audio-status")).toContainText("播放完成");
   await page.reload();
+  await page.getByRole("button", { name: "认识假名", exact: true }).click();
   await expect(page.locator("#heard-count")).toHaveText("1");
   await page.getByRole("button", { name: "ア 片假名", exact: true }).click();
   await expect(page.getByRole("button", { name: "学习 ア", exact: true })).toBeVisible();
@@ -66,6 +68,7 @@ test("quiz hides the target, records first attempts and restores progress after 
   await expect(page.locator("#accuracy-count")).toHaveText("50%");
   await expect(page.locator("#storage-status")).toHaveText("进度已保存在本机");
   await page.reload();
+  await page.getByRole("button", { name: "认识假名", exact: true }).click();
   await expect(page.locator("#accuracy-count")).toHaveText("50%");
 });
 
@@ -82,12 +85,12 @@ test("corrupt progress is reported and never overwritten by an empty record", as
   await page.evaluate(() => localStorage.setItem("sing-japanese:progress:v1", "broken"));
   await page.reload();
   await expect(page.getByRole("alert")).toContainText("为保护原记录");
-  await expect(page.getByRole("button", { name: "学习 あ", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "认识假名", exact: true })).toBeDisabled();
   expect(await page.evaluate(() => localStorage.getItem("sing-japanese:progress:v1"))).toBe("broken");
   await page.evaluate(() => localStorage.removeItem("sing-japanese:progress:v1"));
   await page.getByRole("button", { name: "重试读取", exact: true }).click();
   await expect(page.getByRole("alert")).toBeHidden();
-  await expect(page.getByRole("button", { name: "学习 あ", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "认识假名", exact: true })).toBeEnabled();
 });
 
 test("missing audio is explicit and prevents guessing until playback recovers", async ({ page }) => {
@@ -108,12 +111,32 @@ test("resource attribution and narrow layouts remain usable", async ({ page }) =
   await page.goto("/");
   await page.getByRole("button", { name: "本地资源", exact: true }).click();
   await expect(page.getByRole("heading", { name: "声音留在本地，学习也一样" })).toBeVisible();
-  await page.locator("summary").click();
+  await page.locator("summary").first().click();
   await expect(page.locator(".resource-list li")).toHaveCount(71);
   await expect(page.locator(".resource-list").first()).toContainText("Hakatanoshio117117");
   await page.setViewportSize({ width: 820, height: 650 });
+  await page.getByRole("button", { name: "返回首页", exact: false }).click();
   await page.getByRole("button", { name: "认识假名", exact: true }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("home cards guide learning before lyrics without sidebar tabs and retain lyric input", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "先认识假名，再读懂歌词。" })).toBeVisible();
+  await expect(page.locator(".sidebar, [role=tab], nav")).toHaveCount(0);
+  const cards = page.locator(".home-path article");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0)).toContainText("先认识假名");
+  await expect(cards.nth(1)).toContainText("核心功能");
+  await page.getByRole("button", { name: "歌词注音", exact: true }).click();
+  await page.getByLabel("日语文本（最多 20,000 字符）").fill("学校へ行く");
+  await expect(page.locator("#annotate-lyrics")).toBeDisabled();
+  await page.getByRole("button", { name: "返回首页", exact: false }).click();
+  await page.getByRole("button", { name: "歌词注音", exact: true }).click();
+  await expect(page.locator("#lyrics-input")).toHaveValue("学校へ行く");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "返回首页", exact: false }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

@@ -56,6 +56,8 @@ async function open() {
     },
   });
   session = created.sessionId;
+  await waitFor(async () => execute("return document.querySelector('.home-path') !== null"), "native home cards");
+  await click('[data-view="learn"]');
   await waitFor(async () => execute("return document.querySelectorAll('[data-kana]').length === 46"), "native chart");
 }
 
@@ -83,7 +85,7 @@ try {
   session = undefined;
   await open();
   assert.equal(await execute("return document.querySelector('#heard-count').textContent"), "1");
-  await click('[data-view="quiz"]');
+  await click("#go-quiz");
   await click("#start-quiz");
   await waitFor(async () => execute("return [...document.querySelectorAll('[data-answer]')].some(button => !button.disabled)"), "native quiz playback");
   await click("[data-answer]");
@@ -91,6 +93,17 @@ try {
   const afterQuiz = JSON.parse(await readFile(path, "utf8"));
   const attempts = Object.values(afterQuiz.cards).reduce((sum, card) => sum + card.correct + card.wrong, 0);
   assert.equal(attempts, 1);
+  await click('[data-view="home"]');
+  await click('[data-view="lyrics"]');
+  await execute("const input = document.querySelector('#lyrics-input'); input.value = '今日、学校へ行く。\\n\\n  空 <script>alert(1)</script>'; input.dispatchEvent(new Event('input', { bubbles: true }));");
+  await click("#annotate-lyrics");
+  await waitFor(async () => execute("return document.querySelector('.lyrics-output ruby') !== null"), "offline dictionary annotation");
+  assert.equal(await execute("return [...document.querySelectorAll('.lyrics-output ruby')].some(ruby => ruby.firstChild.textContent === '学校' && ruby.querySelector('rt').textContent === 'がっこう')"), true);
+  assert.equal(await execute("return document.querySelector('.lyrics-output script') === null"), true);
+  assert.equal(await execute("const output = document.querySelector('.lyrics-output').cloneNode(true); output.querySelectorAll('rt').forEach(rt => rt.remove()); return output.textContent"), "今日、学校へ行く。\n\n  空 <script>alert(1)</script>");
+  await click("#lyrics-readings");
+  assert.equal(await execute("return document.querySelector('.lyrics-output').classList.contains('hide-readings')"), true);
+  console.log("Native furigana verified: offline readings, original text, line breaks, safe rendering and visibility toggle.");
   console.log("Native desktop verified: bundled UI, Ogg playback, Rust IPC, atomic save, restart recovery and quiz.");
 } finally {
   try {

@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod furigana;
 mod progress;
 
 use progress::{load, save, Progress};
@@ -7,6 +8,13 @@ use std::sync::Mutex;
 use tauri::Manager;
 
 struct StorageLock(Mutex<()>);
+
+#[tauri::command]
+async fn annotate_lyrics(text: String) -> Result<Vec<furigana::Segment>, String> {
+    tauri::async_runtime::spawn_blocking(move || furigana::annotate(&text))
+        .await
+        .map_err(|error| format!("注音任务失败：{error}"))?
+}
 
 #[tauri::command]
 fn load_progress(
@@ -38,7 +46,11 @@ fn save_progress(
 fn main() {
     tauri::Builder::default()
         .manage(StorageLock(Mutex::new(())))
-        .invoke_handler(tauri::generate_handler![load_progress, save_progress])
+        .invoke_handler(tauri::generate_handler![
+            load_progress,
+            save_progress,
+            annotate_lyrics
+        ])
         .run(tauri::generate_context!())
         .expect("无法启动假名小调桌面应用");
 }
