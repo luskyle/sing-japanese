@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { kana, pronunciationNote } from "./kana";
-import { cardKey, emptyProgress, makeQuestion, parseProgress, record, summarize } from "./learning";
+import { kana, pronunciationNote } from "./data";
+import { cardKey, emptyProgress, makeQuestion, parseProgress, record, summarize } from "./progress";
 
 describe("kana curriculum", () => {
   it("contains 71 unique corresponding hiragana and katakana with correct group sizes", () => {

@@ -1,4 +1,4 @@
-import { kana, type Kana, type Script } from "./kana";
+import { kana, type Kana, type Script } from "./data";
 
 export interface Card {
   listens: number;

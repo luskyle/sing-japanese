@@ -1,0 +1,40 @@
+.guide { padding: 24px; color: #7b7290; font-size: 12px; line-height: 1.9; }
+.guide h3 { font-size: 12px; color: #8d6bae; margin: 18px 0 6px; }
+.guide p { margin: 10px 0; }
+.guide > :last-child { margin-bottom: 0; }
+.guide-layout { display: grid; gap: 18px; }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.steps article { padding: 22px; }
+.steps article:nth-child(2) { background: linear-gradient(145deg, #fff9ec, #fff2dd); }
+.steps article:nth-child(3) { background: linear-gradient(145deg, #fff1f6, #fbe4ef); }
+.steps b { color: #b18ed2; font: 18px ui-monospace, monospace; }
+.steps h2 { margin: 14px 0 8px; }
+.steps p { font-size: 12px; line-height: 1.9; color: #8a7a9c; margin: 0; }
+.sound-differences { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 28px; margin: 20px 0; }
+dt { font-size: 15px; color: #9574b3; }
+dd { margin: 6px 0 0; font-size: 12px; color: #8b7f9b; line-height: 1.9; }
+.resource-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.resource-summary { display: flex; align-items: center; gap: 18px; padding: 20px 0 8px; }
+.resource-summary strong { font: 54px ui-monospace, monospace; color: #b18ad8; text-shadow: 0 2px #fff; }
+.resource-summary span { font-size: 11px; line-height: 1.9; }
+.resource-details { grid-column: 1 / -1; }
+details + details { border-top: 1px solid #e9e1f3; margin-top: 16px; padding-top: 16px; }
+summary { color: #806997; font-size: 12px; }
+.resource-list { list-style: none; padding: 0; margin: 14px 0 0; }
+.resource-list li { padding: 10px 0; border-top: 1px solid #e9e1f3; overflow-wrap: anywhere; }
+.resource-list b { margin-right: 10px; color: #9e79b9; }
+.resource-list span, .resource-list small { font-size: 10px; }
+.resource-list small { display: block; color: #9a8aa8; }
+.license-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; color: #8a7e98; }
+@media (max-width: 800px) {
+  .steps { gap: 12px; }
+  .steps article { padding: 18px; }
+  .sound-differences { gap: 18px; }
+}
+@media (max-width: 600px) {
+  .steps, .sound-differences, .resource-layout { grid-template-columns: minmax(0, 1fr); }
+  .guide { padding: 18px; }
+  .steps article { padding: 16px; }
+  .steps h2 { display: inline-block; margin: 0 0 8px 12px; }
+  .resource-summary strong { font-size: 46px; }
+}

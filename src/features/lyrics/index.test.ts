@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-vi.mock("./storage", () => ({ desktop: true }));
+vi.mock("../../services/storage", () => ({ desktop: true }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 import { invoke } from "@tauri-apps/api/core";
 
@@ -10,7 +10,7 @@ beforeEach(() => {
 });
 
 it("renders safe ruby and keeps original whitespace without adding annotations to kana", async () => {
-  const lyrics = await import("./lyrics");
+  const lyrics = await import("./index");
   lyrics.updateLyricsInput("学校\n <b>あ");
   vi.mocked(invoke).mockResolvedValue([
     { text: "学校", reading: "がっこう", unknown: false },
@@ -24,7 +24,7 @@ it("renders safe ruby and keeps original whitespace without adding annotations t
 });
 
 it("rejects changed source text, surfaces failures and validates empty input", async () => {
-  const lyrics = await import("./lyrics");
+  const lyrics = await import("./index");
   const render = vi.fn();
   await lyrics.annotateLyrics(render);
   expect(invoke).not.toHaveBeenCalled();

@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import ts from "typescript";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const source = await readFile(resolve(root, "src/kana.ts"), "utf8");
+const source = await readFile(resolve(root, "src/features/kana/data.ts"), "utf8");
 const { outputText } = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
 });

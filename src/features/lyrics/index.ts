@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { desktop } from "./storage";
+import { desktop } from "../../services/storage";
+import { escapeHtml as escape } from "../../shared/html";
 
 interface Segment { text: string; reading: string | null; unknown: boolean }
 let input = "";
@@ -8,26 +9,27 @@ let annotatedInput = "";
 let busy = false;
 let error = "";
 let showReading = true;
-const escape = (text: string): string => text.replace(/[&<>"']/g, (char) =>
-  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
 
 export function lyricsView(): string {
   const unknown = segments?.filter((segment) => segment.unknown).length ?? 0;
-  return `<section class="panel guide">
-    <h2>粘贴歌词，自动标注假名</h2>
-    <p>使用本地日语词典标注常规读音，不需要模型、网络或人工修正。按词注音，不匹配原唱的特殊读法。</p>
-    ${!desktop ? '<p class="notice">注音需要 Rust 本地词典，请打开桌面版使用；浏览器预览不提供注音服务。</p>' : ""}
-    <label for="lyrics-input">日语文本（最多 20,000 字符）</label>
-    <textarea id="lyrics-input" class="lyrics-input" lang="ja" placeholder="在这里粘贴日语歌词…" ${busy ? "disabled" : ""}>${escape(input)}</textarea>
+  return `<div class="lyrics-layout">
+    <section class="panel lyrics-editor" aria-label="歌词原文">
+    <div class="panel-heading"><label for="lyrics-input">歌词原文</label><span class="input-limit">最多 20,000 字符</span></div>
+    ${!desktop ? '<p class="notice">请使用桌面版注音；浏览器仅供界面预览。</p>' : ""}
+    <textarea id="lyrics-input" class="lyrics-input" lang="ja" aria-label="日语文本（最多 20,000 字符）" placeholder="粘贴日语歌词…" ${busy ? "disabled" : ""}>${escape(input)}</textarea>
     <div class="lyrics-actions"><button class="primary" id="annotate-lyrics" ${busy || !desktop ? "disabled" : ""}>${busy ? "正在本地分析…" : "自动注音"}</button>
-    <label><input id="lyrics-readings" type="checkbox" ${showReading ? "checked" : ""}> 显示振假名</label></div>
+    </div>
     ${error ? `<p role="alert" class="error-notice">${escape(error)}</p>` : ""}
-    ${segments ? `<p role="status">注音完成。${unknown ? `${unknown} 个汉字词未找到读音，已用虚线标出并保留原文。` : "原文与换行已保留。"}${input !== annotatedInput ? " 输入已更改，请重新注音。" : ""}</p>
+    <p class="muted">常规词典读音，人名及特殊唱法可能不同。歌词仅本次会话保留。</p>
+    </section>
+    <section class="panel lyrics-result" aria-label="注音结果">
+    <div class="panel-heading"><h2>注音结果</h2><label class="toggle"><input id="lyrics-readings" type="checkbox" ${showReading ? "checked" : ""}> 显示振假名</label></div>
+    ${segments ? `<p class="result-status" role="status">${unknown ? `${unknown} 个汉字词未找到读音，已用虚线标出。` : "注音完成"}${input !== annotatedInput ? " · 输入已更改，请重新注音。" : ""}</p>
     <div class="lyrics-output ${showReading ? "" : "hide-readings"}" lang="ja">${segments.map((segment) =>
       segment.reading ? `<ruby>${escape(segment.text)}<rt>${escape(segment.reading)}</rt></ruby>` :
-        segment.unknown ? `<span class="unknown-word" title="本地词典未找到读音">${escape(segment.text)}</span>` : escape(segment.text)).join("")}</div>` : ""}
-    <p class="muted">人名、造词及歧义词可能标错。输入和结果仅在本次应用会话中保留，不上传、不自动存盘。</p>
-  </section>`;
+        segment.unknown ? `<span class="unknown-word" title="本地词典未找到读音">${escape(segment.text)}</span>` : escape(segment.text)).join("")}</div>` : '<div class="lyrics-empty">注音结果将显示在这里</div>'}
+    </section>
+  </div>`;
 }
 
 export function updateLyricsInput(value: string): void { input = value; }

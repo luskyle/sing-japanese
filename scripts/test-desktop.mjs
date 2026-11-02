@@ -57,6 +57,18 @@ async function open() {
   });
   session = created.sessionId;
   await waitFor(async () => execute("return document.querySelector('.home-path') !== null"), "native home cards");
+  await waitFor(async () => execute("return document.fonts.status === 'loaded'"), "native home fonts");
+  const original = await request(`/session/${session}/window/rect`, undefined, "GET");
+  for (const size of [original, { width: 820, height: 650 }]) {
+    await request(`/session/${session}/window/rect`, { width: size.width, height: size.height });
+    await waitFor(async () => execute(`return document.documentElement.scrollWidth <= innerWidth
+      && document.documentElement.scrollHeight <= innerHeight
+      && [...document.querySelectorAll('.home-screen button, .home-screen h1, .feature-card p')].every(element => {
+        const box = element.getBoundingClientRect();
+        return box.top >= 0 && box.left >= 0 && box.bottom <= innerHeight && box.right <= innerWidth;
+      })`), "native home fits without scrolling or clipping");
+  }
+  await request(`/session/${session}/window/rect`, { width: original.width, height: original.height });
   await click('[data-view="learn"]');
   await waitFor(async () => execute("return document.querySelectorAll('[data-kana]').length === 46"), "native chart");
 }
@@ -95,6 +107,7 @@ try {
   assert.equal(attempts, 1);
   await click('[data-view="home"]');
   await click('[data-view="lyrics"]');
+  assert.equal(await execute("return document.querySelectorAll('.lyrics-layout > .panel').length"), 2);
   await execute("const input = document.querySelector('#lyrics-input'); input.value = '今日、学校へ行く。\\n\\n  空 <script>alert(1)</script>'; input.dispatchEvent(new Event('input', { bubbles: true }));");
   await click("#annotate-lyrics");
   await waitFor(async () => execute("return document.querySelector('.lyrics-output ruby') !== null"), "offline dictionary annotation");
@@ -103,6 +116,14 @@ try {
   assert.equal(await execute("const output = document.querySelector('.lyrics-output').cloneNode(true); output.querySelectorAll('rt').forEach(rt => rt.remove()); return output.textContent"), "今日、学校へ行く。\n\n  空 <script>alert(1)</script>");
   await click("#lyrics-readings");
   assert.equal(await execute("return document.querySelector('.lyrics-output').classList.contains('hide-readings')"), true);
+  for (const [view, title] of [["guide", "学习指南"], ["resources", "本地资源"]]) {
+    await click('[data-view="home"]');
+    await click(`[data-view="${view}"]`);
+    assert.equal(await execute("return document.querySelector('h1').textContent"), title);
+    assert.equal(await execute("return document.querySelector('.chapter, .title-stamp, footer') === null"), true);
+  }
+  await click("details:last-child summary");
+  await waitFor(async () => execute("return document.querySelector('#dictionary-license').textContent.includes('Lindera Morphological Analyzer')"), "native dictionary license");
   console.log("Native furigana verified: offline readings, original text, line breaks, safe rendering and visibility toggle.");
   console.log("Native desktop verified: bundled UI, Ogg playback, Rust IPC, atomic save, restart recovery and quiz.");
 } finally {

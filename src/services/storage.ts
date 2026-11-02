@@ -1,5 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { emptyProgress, parseProgress, type Progress } from "./learning";
+import { emptyProgress, parseProgress, type Progress } from "../features/kana/progress";
 
 const key = "sing-japanese:progress:v1";
 export const desktop = isTauri();
