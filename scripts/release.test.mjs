@@ -32,8 +32,8 @@ test("nested platform artifacts are flattened, checked and hashed; missing asset
     execFileSync(process.execPath, ["scripts/check-release-assets.mjs", input, output], { cwd: root });
     const checksums = await readFile(join(output, "SHA256SUMS.txt"), "utf8");
     assert.equal(checksums.trim().split("\n").length, 4);
-    assert.ok(checksums.includes(`${createHash("sha256").update(content).digest("hex")}  Sing Japanese.dmg`));
-    assert.deepEqual(await readFile(join(output, "Sing Japanese.exe")), content);
+    assert.ok(checksums.includes(`${createHash("sha256").update(content).digest("hex")}  Sing.Japanese.dmg`));
+    assert.deepEqual(await readFile(join(output, "Sing.Japanese.exe")), content);
     await rm(join(input, "dmg", "Sing Japanese.dmg"));
     const result = spawnSync(process.execPath, ["scripts/check-release-assets.mjs", input, join(temp, "incomplete")], { cwd: root });
     assert.equal(result.status, 1);

@@ -21,8 +21,10 @@ const checksums = [];
 await mkdir(directory, { recursive: true });
 assert.equal((await readdir(directory)).length, 0, "Output directory must be empty");
 for (const path of files) {
-  const file = basename(path);
-  assert.ok(!/[\r\n]/.test(file), "Invalid asset filename");
+  const original = basename(path);
+  assert.ok(!/[\r\n]/.test(original), "Invalid asset filename");
+  const file = original.replaceAll(" ", ".");
+  assert.match(file, /^[A-Za-z0-9][A-Za-z0-9._-]*$/, "Installer filenames must be portable ASCII");
   const contents = await readFile(path);
   assert.ok(contents.length > 1024, `Installer is unexpectedly small: ${file}`);
   checksums.push(`${createHash("sha256").update(contents).digest("hex")}  ${file}`);
