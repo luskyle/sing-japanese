@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=假名小调
+Comment=假名学习、日语注音与 A4 PDF 导出
+Exec=sing-japanese
+Icon=applications-education
+Terminal=false
+Categories=Education;Languages;

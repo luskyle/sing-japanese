@@ -1,4 +1,4 @@
-name: Desktop Release
+name: Qt Desktop Release
 
 on:
   push:
@@ -13,50 +13,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  version:
-    name: Validate release tag and versions
-    runs-on: ubuntu-22.04
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '22'
-      - run: node scripts/check-release.mjs
-
-  build:
-    name: Test and build all platforms
-    needs: version
-    uses: ./.github/workflows/ci.yml
-    permissions:
-      contents: read
-
   release:
-    name: Create draft release
-    needs: [version, build]
     runs-on: ubuntu-22.04
-    timeout-minutes: 10
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          pattern: desktop-*
-          path: downloaded-artifacts
-          merge-multiple: true
-      - name: Validate assets and generate SHA-256 checksums
-        run: node scripts/check-release-assets.mjs
-      - name: Create release draft with installers
+      - name: Validate release version
+        run: |
+          VERSION="$(sed -n 's/^project(sing_japanese VERSION \([^ )]*\).*/\1/p' CMakeLists.txt)"
+          test "$GITHUB_REF_NAME" = "v$VERSION"
+      - name: Install build and runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake qtbase5-dev qtmultimedia5-dev \
+            libqt5multimedia5-plugins libmecab-dev mecab-ipadic-utf8 \
+            fonts-noto-cjk gstreamer1.0-plugins-good poppler-utils
+      - name: Build, test, and package
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel 2
+          ctest --test-dir build --output-on-failure
+          cmake --build build --target package
+      - name: Publish Debian installer
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" release-assets/* \
+          gh release create "$RELEASE_TAG" build/*.deb \
             --verify-tag --draft --generate-notes \
             --title "假名小调 $RELEASE_TAG" \
-            --notes "离线假名学习桌面版。Linux: .deb / .AppImage；Windows x64: NSIS .exe；macOS Intel / Apple Silicon: Universal .dmg。安装包暂未代码签名或公证，系统可能显示安全提示。SHA256SUMS.txt 可用于核对下载文件完整性，不代替数字签名。"
+            --notes "Linux Qt 桌面版：假名学习、离线日语注音及 A4 PDF 导出。需要 Qt 5、MeCab/IPADIC 和 GStreamer 运行依赖。"
