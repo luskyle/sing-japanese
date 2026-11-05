@@ -1,0 +1,9 @@
+<RCC>
+  <qresource prefix="/">
+    <file>qml/Main.qml</file>
+    <file>qml/KanaPage.qml</file>
+    <file>qml/LyricsPage.qml</file>
+    <file>qml/ActionButton.qml</file>
+    <file>qml/ChoiceBox.qml</file>
+  </qresource>
+</RCC>

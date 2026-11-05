@@ -2,7 +2,8 @@
 
 #include "annotator.h"
 
-#include <QWidget>
+#include <QQuickPaintedItem>
+#include <QVariantList>
 
 class QPainter;
 
@@ -20,18 +21,20 @@ void drawAnnotationLines(QPainter &painter, const QVector<AnnotationLine> &lines
                          int firstLine, int lineCount, qreal lineHeight);
 bool exportAnnotatedPdf(const QString &path, const QVector<Segment> &segments, QString *error);
 
-class AnnotationView final : public QWidget
+class AnnotationView : public QQuickPaintedItem
 {
+    Q_OBJECT
+    Q_PROPERTY(QVariantList segments READ segments WRITE setSegments NOTIFY segmentsChanged)
 public:
-    explicit AnnotationView(QWidget *parent = nullptr);
-    void setSegments(const QVector<Segment> &segments);
-    QSize sizeHint() const override;
-    bool hasHeightForWidth() const override { return true; }
-    int heightForWidth(int width) const override;
-
-protected:
-    void paintEvent(QPaintEvent *event) override;
+    explicit AnnotationView(QQuickItem *parent = nullptr);
+    QVariantList segments() const { return values_; }
+    void setSegments(const QVariantList &segments);
+    void paint(QPainter *painter) override;
+signals:
+    void segmentsChanged();
 
 private:
+    void updateHeight();
+    QVariantList values_;
     QVector<Segment> segments_;
 };

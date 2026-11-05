@@ -24,14 +24,14 @@ QVector<QString> characters(const QString &text)
 QFont baseFont()
 {
     QFont font(QStringLiteral("Noto Sans CJK JP"));
-    font.setPointSize(13);
+    font.setPixelSize(18);
     return font;
 }
 
 QFont readingFont()
 {
     QFont font(QStringLiteral("Noto Sans CJK JP"));
-    font.setPointSize(8);
+    font.setPixelSize(11);
     return font;
 }
 
@@ -122,46 +122,40 @@ void drawAnnotationLines(QPainter &painter, const QVector<AnnotationLine> &lines
         drawLine(painter, lines.at(firstLine + index), index * lineHeight, base, ruby);
 }
 
-AnnotationView::AnnotationView(QWidget *parent) : QWidget(parent)
+AnnotationView::AnnotationView(QQuickItem *parent) : QQuickPaintedItem(parent)
 {
-    setMinimumWidth(300);
-    QSizePolicy policy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    policy.setHeightForWidth(true);
-    setSizePolicy(policy);
-    setAutoFillBackground(true);
-    QPalette colors = palette();
-    colors.setColor(QPalette::Window, Qt::white);
-    setPalette(colors);
+    connect(this, &QQuickItem::widthChanged, this, &AnnotationView::updateHeight);
+    setAntialiasing(true);
 }
 
-void AnnotationView::setSegments(const QVector<Segment> &segments)
+void AnnotationView::setSegments(const QVariantList &segments)
 {
-    segments_ = segments;
-    updateGeometry();
+    values_ = segments;
+    segments_.clear();
+    for (const QVariant &value : segments) {
+        const auto segment = value.toMap();
+        segments_.append({segment.value("text").toString(), segment.value("reading").toString(),
+                          segment.value("unknown").toBool()});
+    }
+    updateHeight();
+    emit segmentsChanged();
+}
+
+void AnnotationView::updateHeight()
+{
+    setImplicitHeight(std::max<qreal>(80,
+        layoutAnnotation(segments_, width(), baseFont(), readingFont()).size() * kLineHeight + kPadding * 2));
     update();
 }
 
-int AnnotationView::heightForWidth(int width) const
+void AnnotationView::paint(QPainter *painter)
 {
-    return std::max(80, static_cast<int>(std::ceil(
-        layoutAnnotation(segments_, width, baseFont(), readingFont()).size() * kLineHeight + kPadding * 2)));
-}
-
-QSize AnnotationView::sizeHint() const
-{
-    return {480, heightForWidth(width() > 0 ? width() : 480)};
-}
-
-void AnnotationView::paintEvent(QPaintEvent *)
-{
-    QPainter painter(this);
-    painter.fillRect(rect(), Qt::white);
+    painter->fillRect(boundingRect(), Qt::white);
     const auto lines = layoutAnnotation(segments_, width(), baseFont(), readingFont());
-    painter.save();
-    painter.translate(0, kPadding);
-    painter.setClipRect(rect().adjusted(0, kPadding, 0, 0));
-    drawAnnotationLines(painter, lines, 0, lines.size(), kLineHeight);
-    painter.restore();
+    painter->save();
+    painter->translate(0, kPadding);
+    drawAnnotationLines(*painter, lines, 0, lines.size(), kLineHeight);
+    painter->restore();
 }
 
 bool exportAnnotatedPdf(const QString &path, const QVector<Segment> &segments, QString *error)
