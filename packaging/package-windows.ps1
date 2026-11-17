@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $version = [regex]::Match((Get-Content CMakeLists.txt -Raw), 'project\(sing_japanese VERSION ([0-9.]+)').Groups[1].Value
 if (-not $version) { throw 'Cannot determine application version' }
-$stage = Join-Path $PWD 'build/portable/SingJapanese'
+$stage = Join-Path $PWD 'build/portable/唱日语/SingJapanese'
 cmake --install build --prefix $stage
 if ($LASTEXITCODE) { throw 'Installation failed' }
 Get-ChildItem "$stage/bin" | Move-Item -Destination $stage

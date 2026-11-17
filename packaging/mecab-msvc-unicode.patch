@@ -1,0 +1,12 @@
+diff --git a/ports/mecab/fix_wpath_unsigned.patch b/ports/mecab/fix_wpath_unsigned.patch
+--- a/ports/mecab/fix_wpath_unsigned.patch
++++ b/ports/mecab/fix_wpath_unsigned.patch
+@@ -8,7 +8,7 @@
+  #else
+ -#define WPATH(path) WPATH_FORCE(path)
+ +#define WPATH_FORCE(path) (MeCab::Utf8ToWide(path).c_str())
+-+#define WPATH(path) (path)
+++#define WPATH(path) WPATH_FORCE(path)
+  #endif
+  #else
+  #define WPATH_FORCE(path) (path)

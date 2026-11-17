@@ -10,6 +10,10 @@ and the application's original kana recordings.
   libraries with compatible modified versions; reverse engineering for debugging
   modifications to these libraries is not restricted.
 - MeCab: BSD license option, <https://github.com/taku910/mecab>.
+  Windows uses vcpkg commit `0df93a05b9de080129e653ec4776d7e14a1b2e4f`
+  with the included `mecab-msvc-unicode.patch` to keep MSVC configuration-file
+  access Unicode-aware. The underlying MeCab source commit is
+  `3a07c4eefaffb4e7a0690a7f4e5e0263d3ddb8a3`.
 - Minizip and zlib: zlib license, <https://github.com/madler/zlib>.
 - IPADIC: NAIST license; see `IPADIC-NOTICE.txt` and `IPADIC-copyright`.
 - Noto Sans CJK JP: SIL Open Font License 1.1; see `Noto-OFL.txt`.

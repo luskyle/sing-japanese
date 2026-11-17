@@ -28,7 +28,7 @@ jobs:
           cp -L /var/lib/mecab/dic/ipadic-utf8/{sys.dic,unk.dic,char.bin,matrix.bin} runtime/ipadic/
           cp /var/lib/mecab/dic/ipadic-utf8/dicrc runtime/ipadic/
           cp packaging/mecabrc runtime/mecabrc
-          cp public/licenses/IPADIC-NOTICE.txt public/RESOURCE-LICENSE.md public/audio-manifest.json packaging/THIRD-PARTY-NOTICES.md runtime/licenses/
+          cp public/licenses/IPADIC-NOTICE.txt public/RESOURCE-LICENSE.md public/audio-manifest.json packaging/THIRD-PARTY-NOTICES.md packaging/mecab-msvc-unicode.patch runtime/licenses/
           cp /usr/share/common-licenses/LGPL-3 runtime/licenses/Qt-LGPL-3.txt
           cp /usr/share/doc/mecab-ipadic-utf8/copyright runtime/licenses/IPADIC-copyright
           cp /usr/share/doc/libmecab2/copyright runtime/licenses/MeCab-copyright
@@ -94,6 +94,7 @@ jobs:
         run: |
           git -C "$VCPKG_INSTALLATION_ROOT" fetch origin 0df93a05b9de080129e653ec4776d7e14a1b2e4f --depth 1
           git -C "$VCPKG_INSTALLATION_ROOT" checkout --detach 0df93a05b9de080129e653ec4776d7e14a1b2e4f
+          git -C "$VCPKG_INSTALLATION_ROOT" apply "$GITHUB_WORKSPACE/packaging/mecab-msvc-unicode.patch"
           "$VCPKG_INSTALLATION_ROOT/bootstrap-vcpkg.bat" -disableMetrics
           "$VCPKG_INSTALLATION_ROOT/vcpkg.exe" install mecab:x64-windows minizip:x64-windows
           if ! command -v ffmpeg; then choco install ffmpeg --no-progress -y; fi
