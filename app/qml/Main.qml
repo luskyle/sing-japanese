@@ -11,7 +11,7 @@ ApplicationWindow {
     height: Math.min(900, Screen.desktopAvailableHeight)
     minimumWidth: Math.min(1120, Screen.desktopAvailableWidth)
     minimumHeight: Math.min(800, Screen.desktopAvailableHeight)
-    title: "假名小调"
+    title: "唱日语"
     color: "#f4f3ec"
     font.family: "Noto Sans CJK JP"
     font.pixelSize: Math.round(16 * uiScale)
@@ -43,7 +43,7 @@ ApplicationWindow {
                 }
                 Column {
                     spacing: 3
-                    Text { text: "假名小调"; font.pixelSize: Math.round(20 * window.uiScale); font.weight: Font.DemiBold; color: "#243d32" }
+                    Text { text: "唱日语"; font.pixelSize: Math.round(20 * window.uiScale); font.weight: Font.DemiBold; color: "#243d32" }
                     Text {
                         visible: window.width >= 700
                         text: "SING JAPANESE"; font.pixelSize: Math.round(14 * window.uiScale); color: "#65766b"

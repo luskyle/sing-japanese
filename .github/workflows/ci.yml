@@ -10,34 +10,5 @@ permissions:
   contents: read
 
 jobs:
-  linux:
-    name: Linux / Qt 5
-    runs-on: ubuntu-22.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-      - name: Install build and runtime dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential cmake qtbase5-dev qtdeclarative5-dev qtmultimedia5-dev \
-            qml-module-qtquick2 qml-module-qtquick-window2 \
-            qml-module-qtquick-controls2 qml-module-qtquick-layouts \
-            libqt5multimedia5-plugins libmecab-dev libminizip-dev mecab-ipadic-utf8 \
-            fonts-noto-cjk gstreamer1.0-plugins-good poppler-utils
-      - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-      - name: Build
-        run: cmake --build build --parallel 2
-      - name: Test annotation layers, DOCX/PDF and clipboard export
-        run: ctest --test-dir build --output-on-failure
-      - name: Package Debian installer
-        run: cmake --build build --target package
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: sing-japanese-linux
-          path: build/*.deb
-          if-no-files-found: error
-          retention-days: 14
+  desktop:
+    uses: ./.github/workflows/build-desktop.yml

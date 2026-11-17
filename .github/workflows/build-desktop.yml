@@ -1,0 +1,146 @@
+name: Build desktop packages
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit or tag to build
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-data:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
+      - name: Prepare portable dictionary, font, and licenses
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mecab-ipadic-utf8 libmecab2 libminizip1 zlib1g
+          mkdir -p runtime/ipadic runtime/licenses
+          cp -L /var/lib/mecab/dic/ipadic-utf8/{sys.dic,unk.dic,char.bin,matrix.bin} runtime/ipadic/
+          cp /var/lib/mecab/dic/ipadic-utf8/dicrc runtime/ipadic/
+          cp packaging/mecabrc runtime/mecabrc
+          cp public/licenses/IPADIC-NOTICE.txt public/RESOURCE-LICENSE.md public/audio-manifest.json packaging/THIRD-PARTY-NOTICES.md runtime/licenses/
+          cp /usr/share/common-licenses/LGPL-3 runtime/licenses/Qt-LGPL-3.txt
+          cp /usr/share/doc/mecab-ipadic-utf8/copyright runtime/licenses/IPADIC-copyright
+          cp /usr/share/doc/libmecab2/copyright runtime/licenses/MeCab-copyright
+          cp /usr/share/doc/libminizip1/copyright runtime/licenses/Minizip-copyright
+          cp /usr/share/doc/zlib1g/copyright runtime/licenses/zlib-copyright
+          FONT_REF=f8d157532fbfaeda587e826d4cd5b21a49186f7c
+          curl --fail --location --retry 3 "https://raw.githubusercontent.com/notofonts/noto-cjk/$FONT_REF/Sans/OTF/Japanese/NotoSansCJKjp-Regular.otf" -o runtime/NotoSansCJKjp-Regular.otf
+          test "$(git hash-object runtime/NotoSansCJKjp-Regular.otf)" = f56224957fb13a81b4c14bac34f2f058a017f9fb
+          curl --fail --location --retry 3 "https://raw.githubusercontent.com/notofonts/noto-cjk/$FONT_REF/Sans/LICENSE" -o runtime/licenses/Noto-OFL.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-runtime-data
+          path: runtime
+          retention-days: 7
+  build:
+    needs: runtime-data
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux-x86_64
+          - os: windows-2022
+            platform: windows-x86_64
+          - os: macos-15-intel
+            platform: macos-x86_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: desktop-runtime-data
+          path: runtime
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake qtbase5-dev qtdeclarative5-dev qtmultimedia5-dev \
+            qml-module-qtquick2 qml-module-qtquick-window2 \
+            qml-module-qtquick-controls2 qml-module-qtquick-layouts \
+            libqt5multimedia5-plugins libmecab-dev libminizip-dev mecab-ipadic-utf8 \
+            fonts-noto-cjk gstreamer1.0-plugins-good poppler-utils
+      - name: Install Qt
+        if: runner.os != 'Linux'
+        uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06 # v4.5.0
+        with:
+          version: '5.15.2'
+          arch: ${{ runner.os == 'Windows' && 'win64_msvc2019_64' || 'clang_64' }}
+          cache: true
+      - name: Set up MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
+        run: |
+          git -C "$VCPKG_INSTALLATION_ROOT" fetch origin 0df93a05b9de080129e653ec4776d7e14a1b2e4f --depth 1
+          git -C "$VCPKG_INSTALLATION_ROOT" checkout --detach 0df93a05b9de080129e653ec4776d7e14a1b2e4f
+          "$VCPKG_INSTALLATION_ROOT/bootstrap-vcpkg.bat" -disableMetrics
+          "$VCPKG_INSTALLATION_ROOT/vcpkg.exe" install mecab:x64-windows minizip:x64-windows
+          if ! command -v ffmpeg; then choco install ffmpeg --no-progress -y; fi
+          echo "$VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin" >> "$GITHUB_PATH"
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install mecab minizip
+          if ! command -v ffmpeg; then brew install ffmpeg; fi
+      - name: Configure
+        run: |
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+              "-DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" \
+              "-DCMAKE_PREFIX_PATH=$QT_ROOT_DIR" \
+              "-DSING_JAPANESE_DICTIONARY=$PWD/runtime/ipadic" \
+              "-DSING_JAPANESE_FONT=$PWD/runtime/NotoSansCJKjp-Regular.otf"
+          elif [[ "$RUNNER_OS" == macOS ]]; then
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+              "-DCMAKE_PREFIX_PATH=$QT_ROOT_DIR;$(brew --prefix mecab);$(brew --prefix minizip)" \
+              -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+              "-DSING_JAPANESE_DICTIONARY=$PWD/runtime/ipadic" \
+              "-DSING_JAPANESE_FONT=$PWD/runtime/NotoSansCJKjp-Regular.otf"
+          else
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          fi
+      - name: Build and test
+        run: |
+          cmake --build build --parallel 2
+          ctest --test-dir build --output-on-failure
+      - name: Package Linux
+        if: runner.os == 'Linux'
+        run: |
+          cmake --build build --target package
+          mkdir -p release
+          cp build/*.deb release/
+          QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software ./build/sing-japanese --smoke-test
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./packaging/package-windows.ps1
+      - name: Package macOS
+        if: runner.os == 'macOS'
+        run: bash packaging/package-macos.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-${{ matrix.platform }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 14

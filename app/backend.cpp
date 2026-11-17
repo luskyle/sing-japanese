@@ -174,9 +174,14 @@ void Backend::replay()
     clearError();
     const QString directory = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
     if (!QDir().mkpath(directory)) { fail(QStringLiteral("无法创建录音缓存目录。")); return; }
-    const QString path = directory + "/" + selectedId_ + ".ogg";
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
+    const QString suffix = QStringLiteral(".wav");
+#else
+    const QString suffix = QStringLiteral(".ogg");
+#endif
+    const QString path = directory + "/" + selectedId_ + suffix;
     if (!QFileInfo::exists(path)) {
-        QFile source(":/audio/" + selectedId_ + ".ogg");
+        QFile source(":/audio/" + selectedId_ + suffix);
         if (!source.open(QIODevice::ReadOnly)) { fail(QStringLiteral("找不到本地发音录音。")); return; }
         const QByteArray bytes = source.readAll();
         QSaveFile target(path);

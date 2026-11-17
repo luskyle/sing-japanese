@@ -3,6 +3,9 @@
 #include <mecab.h>
 
 #include <QByteArray>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
 #include <QRegularExpression>
 
 #include <algorithm>
@@ -22,9 +25,24 @@ struct MeCabDeleter {
 
 mecab_t *tokenizer()
 {
-    static std::unique_ptr<mecab_t, MeCabDeleter> instance(mecab_new2(""));
+    static std::unique_ptr<mecab_t, MeCabDeleter> instance([] {
+        QString resources = QCoreApplication::applicationDirPath() + "/resources";
+#ifdef Q_OS_MACOS
+        if (!QDir(resources).exists())
+            resources = QCoreApplication::applicationDirPath() + "/../Resources";
+#endif
+        if (QDir(resources + "/ipadic").exists()) {
+            QByteArray name("sing-japanese"), rcOption("-r"), dicOption("-d");
+            QByteArray dictionary = QDir::cleanPath(resources + "/ipadic").toUtf8();
+            QByteArray config = QDir::cleanPath(resources + "/mecabrc").toUtf8();
+            char *args[] = {name.data(), rcOption.data(), config.data(), dicOption.data(), dictionary.data()};
+            return mecab_new(5, args);
+        }
+        return mecab_new2("");
+    }());
     if (!instance)
-        throw std::runtime_error("无法初始化 MeCab。请安装 mecab-ipadic-utf8。");
+        throw std::runtime_error(QStringLiteral("无法初始化 MeCab：%1。请重新安装应用或安装 mecab-ipadic-utf8。")
+            .arg(QString::fromUtf8(mecab_strerror(nullptr))).toStdString());
     return instance.get();
 }
 

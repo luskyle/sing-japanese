@@ -1,4 +1,4 @@
-# 假名小调
+# 唱日语
 
 [![桌面 CI](https://github.com/luskyle/sing-japanese/actions/workflows/ci.yml/badge.svg)](https://github.com/luskyle/sing-japanese/actions/workflows/ci.yml)
 [![GitHub Pages](https://github.com/luskyle/sing-japanese/actions/workflows/pages.yml/badge.svg)](https://github.com/luskyle/sing-japanese/actions/workflows/pages.yml)
@@ -9,7 +9,8 @@
 
 **[项目网站](https://luskyle.github.io/sing-japanese/) · [下载安装包](https://github.com/luskyle/sing-japanese/releases/latest) · [反馈问题](https://github.com/luskyle/sing-japanese/issues)**
 
-目前提供 **Ubuntu / Debian x86_64** 安装包；使用 C++17、Qt 5 Quick/QML、Minizip 和系统 MeCab/IPADIC。
+原名「假名小调」。提供 Windows、macOS 与 Ubuntu / Debian 发行包；使用 C++17、Qt 5 Quick/QML、Minizip 和 MeCab/IPADIC。
+仓库地址与可执行文件名 `sing-japanese` 保持不变。
 
 ## 实际运行截图
 
@@ -67,20 +68,37 @@
 PDF 也使用同样的 A4 排版。极长且不可拆分的词组会等比缩小以免裁切。
 导出文件可在程序退出后继续使用；预览临时文件不可作为永久保存。
 
-## 安装与运行（Ubuntu / Debian）
+## 下载与安装
+
+从 [最新 Release](https://github.com/luskyle/sing-japanese/releases/latest) 下载对应平台文件：
+
+| 平台 | 文件 | 安装与运行 |
+| --- | --- | --- |
+| Windows 10 / 11 x64 | `sing-japanese-0.3.1-Windows-x86_64.zip` | 完整解压后运行 `SingJapanese/sing-japanese.exe` |
+| macOS 12+ Intel | `sing-japanese-0.3.1-macOS-x86_64.dmg` | 打开 DMG，将「唱日语」拖入 Applications |
+| Ubuntu / Debian x86_64 | `sing-japanese-0.3.1-Linux.deb` | 使用下面的 `apt` 命令安装 |
+
+Windows 和 macOS 包内置 Qt、MeCab、UTF-8 IPADIC 和日语字体，不需要另外配置词典。
+Windows / macOS 录音使用 PCM WAV，无需额外的 Ogg 解码器。**不要只复制 EXE 或应用包中的单个文件。**
+Apple Silicon Mac 目前通过 Rosetta 2 运行 Intel 版；暂不提供原生 arm64 包。
+
+Windows 包未签名，可能出现 SmartScreen 提示。macOS 包仅临时签名，未进行 Developer ID 签名或公证；
+确认来自本仓库并校验文件后，可在「系统设置 → 隐私与安全性」中选择「仍要打开」，不要全局关闭 Gatekeeper。
+
+### Ubuntu / Debian
 
 从 [最新 Release](https://github.com/luskyle/sing-japanese/releases/latest) 下载 Debian 安装包后，在安装包所在目录执行：
 
 ```sh
-sudo apt install ./sing-japanese-0.3.0-Linux.deb
+sudo apt install ./sing-japanese-0.3.1-Linux.deb
 sing-japanese
 ```
 
 使用 `apt install ./包名.deb` 安装会一并安装运行依赖；不要只从包中提取可执行文件运行。
 安装包本身约 2 MB，不包含系统 Qt 库和 IPADIC 词典，首次安装还需下载这些依赖。
-其他平台暂不提供安装包。
 
-Release 同时提供 `SHA256SUMS`，与安装包放在同一目录后可执行 `sha256sum --check SHA256SUMS` 校验下载内容。
+Release 同时提供 `SHA256SUMS`。Linux 使用 `sha256sum --check SHA256SUMS --ignore-missing`；
+macOS 使用 `shasum -a 256 文件名`；Windows PowerShell 使用 `Get-FileHash 文件名 -Algorithm SHA256`，与文件中对应条目比较。
 
 如果直接运行自行编译的程序时出现 `libQt5Multimedia.so.5` 或 `libmecab.so.2` 缺失：
 
@@ -107,7 +125,7 @@ cmake --build build --parallel
 `-DQt5_DIR=/usr/lib/x86_64-linux-gnu/cmake/Qt5 -DCMAKE_PREFIX_PATH=/usr`
 选择系统 Qt，避免混用不同版本的库与 QML 插件。
 
-运行 MeCab 注音需要系统 IPADIC。CMake 会将它作为系统依赖，而非复制进应用。
+Linux 默认构建使用系统 IPADIC，不复制进应用。
 如果系统找不到词典，请确认 `mecab-ipadic-utf8` 已安装且 `/etc/mecabrc` 指向该词典。
 Ogg 发音通过 Qt Multimedia / GStreamer 播放。首次播放时录音会从应用资源复制到用户缓存目录。
 
@@ -122,11 +140,25 @@ cpack -G DEB
 Debian 包依赖 Qt 5、Minizip、MeCab/IPADIC、Noto CJK 字体和 GStreamer Ogg 插件。IPADIC 声明保存在
 [`public/licenses/IPADIC-NOTICE.txt`](public/licenses/IPADIC-NOTICE.txt)。
 
+### Windows / macOS 构建
+
+完整依赖安装与原生打包命令见 [共用构建工作流](.github/workflows/build-desktop.yml)：
+Windows 使用 MSVC、Qt 5.15.2、vcpkg 的 MeCab / Minizip 和 FFmpeg（仅构建时转换录音）；
+macOS Intel 使用 Qt 5.15.2 与 Homebrew 的 MeCab / Minizip，以及仅构建时使用的 FFmpeg。
+
+便携构建通过 `-DSING_JAPANESE_DICTIONARY=/绝对路径/ipadic` 指定编译好的 **UTF-8** IPADIC，
+通过 `-DSING_JAPANESE_FONT=/绝对路径/NotoSansCJKjp-Regular.otf` 嵌入日语字体。
+应用优先从随包资源加载词典，不依赖构建机器的 `mecabrc`。Windows / macOS 原生构建时需能找到 `ffmpeg`。
+
+构建与测试后，分别运行 [Windows 打包脚本](packaging/package-windows.ps1) 或 [macOS 打包脚本](packaging/package-macos.sh)；
+脚本部署 Qt/QML 插件和动态库、保留第三方许可，并对打包后的应用执行启动、注音、导出与音频服务冒烟测试。
+命令行 `sing-japanese --smoke-test` 用于发行包验证，执行后自动退出，不保存用户内容。
+
 ## GitHub Pages 与 CI/CD
 
-- [桌面 CI](.github/workflows/ci.yml)：推送到 `main`、提交 PR 或手动触发后，构建 Qt 应用，运行 UI 和文档测试，并上传 Debian 安装包。
+- [桌面 CI](.github/workflows/ci.yml)：推送到 `main`、提交 PR 或手动触发后，在 Linux、Windows、macOS 原生 runner 上构建，运行 UI 和文档测试，并上传对应发行包。
 - [Pages 工作流](.github/workflows/pages.yml)：`docs/` 或站点工作流变更后自动校验并部署静态网站；PR 仅构建，不部署。网站地址为 <https://luskyle.github.io/sing-japanese/>。
-- [Release 工作流](.github/workflows/release.yml)：推送 `vX.Y.Z` 标签后，核对标签与 CMake 版本，构建、测试并生成安装包和 SHA-256 校验文件，然后使用仓库中的[发版说明](.github/release-notes/v0.3.0.md)发布正式 Release。
+- [Release 工作流](.github/workflows/release.yml)：推送 `vX.Y.Z` 标签后，核对标签与 CMake 版本；仅当三个平台均构建、测试、打包成功后，汇总 Debian、Windows ZIP、macOS DMG 与 SHA-256 校验文件，使用仓库中的[发版说明](.github/release-notes/v0.3.1.md)发布正式 Release。
   也可在 Actions 中手动指定已有版本标签重试；不会覆盖已正式发布的版本。
 
 网站直接部署 [`docs/`](docs/)，无需 Node.js、第三方主题或外部字体。新仓库需在 Settings → Pages 中将 Source 设为 GitHub Actions。

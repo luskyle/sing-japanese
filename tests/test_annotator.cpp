@@ -1,6 +1,7 @@
 #include "annotator.h"
 #include "annotationview.h"
 #include "backend.h"
+#include "bundledfont.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -300,6 +301,7 @@ int main(int argc, char **argv)
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
     QApplication application(argc, argv);
+    require(loadBundledFont(), "bundled Japanese font must load");
     QTemporaryDir directory;
     require(directory.isValid(), "temporary directory must be created");
     qputenv("XDG_CACHE_HOME", directory.path().toUtf8());
@@ -367,7 +369,7 @@ int main(int argc, char **argv)
         require(!backend.previewPdf() && !backend.previewDocx() && !backend.copyForWord(),
                 "document actions must reject empty annotation results");
         require(kanaCount(backend) == 71, "kana model must contain 71 entries");
-        require(QDir(":/audio").entryList({"*.ogg"}).size() == 71, "all recordings must be bundled");
+        require(QDir(":/audio").entryList({"*.ogg", "*.wav"}).size() == 71, "all recordings must be bundled");
         backend.setGroupIndex(2);
         require(kanaCount(backend) == 20 && backend.selected().value("character") == QStringLiteral("が"),
                 "voiced group must show 20 kana and select が");

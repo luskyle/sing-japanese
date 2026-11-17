@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="假名小调：离线学习 71 个日语假名，为日语文本标注假名与罗马音，预览并导出 A4 PDF、DOCX。">
+    <meta name="description" content="唱日语：离线学习 71 个日语假名，为日语文本标注假名与罗马音，预览并导出 A4 PDF、DOCX。支持 Windows、macOS 与 Linux。">
     <meta name="theme-color" content="#2d6152">
-    <title>假名小调 · 日语假名学习与歌词注音</title>
+    <title>唱日语 · 日语假名学习与歌词注音</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="./"><span aria-hidden="true">あ</span> 假名小调</a>
+      <a class="brand" href="./"><span aria-hidden="true">あ</span> 唱日语</a>
       <nav aria-label="主导航">
         <a href="#screenshots">运行截图</a>
         <a href="#install">安装</a>
@@ -19,14 +19,14 @@
     </header>
     <main>
       <section class="hero">
-        <p class="eyebrow">Linux 桌面应用 · 无账号 · 离线处理</p>
+        <p class="eyebrow">Windows / macOS / Linux · 无账号 · 离线处理</p>
         <h1>认识假名，<br>读懂每一个音。</h1>
         <p class="intro">一屏学习日语假名，为歌词和日语文本添加假名、罗马音，把清晰对齐的注音稿带到纸上。</p>
         <div class="actions">
           <a class="button" href="https://github.com/luskyle/sing-japanese/releases/latest">下载最新版本</a>
           <a class="button secondary" href="https://github.com/luskyle/sing-japanese#readme">使用与构建文档</a>
         </div>
-        <p class="muted">目前提供 Ubuntu / Debian x86_64 安装包。此网站是介绍页，不会上传或处理你的文本。</p>
+        <p class="muted">原名「假名小调」。提供 Windows x64、macOS Intel 与 Ubuntu / Debian x86_64 发行包。此网站是介绍页，不会上传或处理你的文本。</p>
       </section>
       <section class="features" aria-label="核心功能">
         <article><h2>假名，一眼看全</h2><p>71 个假名按窗口自动分栏，切换平假名、片假名与罗马音，点击即可听真人发音。</p></article>
@@ -48,15 +48,18 @@
       <section id="install" class="install">
         <h2>安装与使用</h2>
         <ol>
-          <li>从 <a href="https://github.com/luskyle/sing-japanese/releases/latest">GitHub Releases</a> 下载 <code>.deb</code> 安装包。</li>
-          <li>在下载目录执行以下命令，自动安装系统依赖。</li>
+          <li>从 <a href="https://github.com/luskyle/sing-japanese/releases/latest">GitHub Releases</a> 下载对应平台的发行包。</li>
+          <li>Windows：完整解压 ZIP，运行 <code>SingJapanese/sing-japanese.exe</code>，无需另装 Qt 或词典。</li>
+          <li>macOS：打开 DMG，将「唱日语」拖入 Applications；Apple Silicon 需通过 Rosetta 2 运行 Intel 版。</li>
+          <li>Ubuntu / Debian：在下载目录执行以下命令，自动安装系统依赖。</li>
         </ol>
-        <pre><code>sudo apt install ./sing-japanese-0.3.0-Linux.deb
+        <pre><code>sudo apt install ./sing-japanese-0.3.1-Linux.deb
 sing-japanese</code></pre>
         <p>给文本注音后，勾选需要的罗马音层，再预览或导出。快捷键：<kbd>Ctrl</kbd> + <kbd>Enter</kbd> 注音，<kbd>Ctrl</kbd> + <kbd>S</kbd> 导出 PDF。</p>
         <aside>
           <h3>使用前请注意</h3>
           <ul>
+            <li>Windows 包未签名；macOS 包未进行 Developer ID 签名或公证。请核对 Release 的 SHA-256 校验文件，确认来源后再按系统提示打开。不要全局关闭系统安全检查。</li>
             <li>DOCX 与复制到 Word 使用高清图片排版，以保持预览效果；其中的文字不能单独编辑。粘贴时请选择“保留源格式”。</li>
             <li>文档预览交给系统关联应用打开，需安装 Word、WPS、LibreOffice 或 PDF 阅读器。</li>
             <li>每次最多处理 20,000 个 Unicode 字符。词典读音不一定适用于人名、歧义用法或歌词中的特殊唱法。</li>
@@ -66,7 +69,7 @@ sing-japanese</code></pre>
       </section>
     </main>
     <footer>
-      <p>假名小调 · C++17 / Qt 5 Quick / MeCab / IPADIC</p>
+      <p>唱日语 · C++17 / Qt 5 Quick / MeCab / IPADIC</p>
       <a href="https://github.com/luskyle/sing-japanese/blob/main/public/RESOURCE-LICENSE.md">音频来源与许可</a>
       <a href="https://github.com/luskyle/sing-japanese/issues">反馈问题</a>
     </footer>

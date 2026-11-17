@@ -2,6 +2,7 @@
 #include "annotationview.h"
 #include "documentexport.h"
 #include "romaji.h"
+#include "bundledfont.h"
 
 #include <unzip.h>
 
@@ -397,6 +398,7 @@ int main(int argc, char **argv)
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
     QApplication application(argc, argv);
+    require(loadBundledFont(), "bundled Japanese font must load");
     QTemporaryDir directory;
     require(directory.isValid(), "temporary document directory must be available");
     checkPaperGeometry();
