@@ -33,7 +33,7 @@ jobs:
             build-essential cmake qtbase5-dev qtdeclarative5-dev qtmultimedia5-dev \
             qml-module-qtquick2 qml-module-qtquick-window2 \
             qml-module-qtquick-controls2 qml-module-qtquick-layouts \
-            libqt5multimedia5-plugins libmecab-dev mecab-ipadic-utf8 \
+            libqt5multimedia5-plugins libmecab-dev libminizip-dev mecab-ipadic-utf8 \
             fonts-noto-cjk gstreamer1.0-plugins-good poppler-utils
       - name: Build, test, and package
         run: |
@@ -49,4 +49,4 @@ jobs:
           gh release create "$RELEASE_TAG" build/*.deb \
             --verify-tag --draft --generate-notes \
             --title "假名小调 $RELEASE_TAG" \
-            --notes "Linux Qt 桌面版：假名学习、离线日语注音及 A4 PDF 导出。需要 Qt 5、MeCab/IPADIC 和 GStreamer 运行依赖。"
+            --notes "Linux Qt 桌面版：假名学习、离线日语注音、可叠加罗马音及 DOCX / A4 PDF 导出。需要 Qt 5、Minizip、MeCab/IPADIC 和 GStreamer 运行依赖；文档预览需系统关联的阅读器。"

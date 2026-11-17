@@ -1,0 +1,343 @@
+#include "annotator.h"
+#include "annotationview.h"
+#include "documentexport.h"
+#include "romaji.h"
+
+#include <unzip.h>
+
+#include <QApplication>
+#include <QDir>
+#include <QFile>
+#include <QFontMetricsF>
+#include <QPainter>
+#include <QProcess>
+#include <QRegularExpression>
+#include <QStandardPaths>
+#include <QTemporaryDir>
+#include <QXmlStreamReader>
+
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <iostream>
+
+namespace {
+void require(bool condition, const char *message)
+{
+    if (!condition) {
+        std::cerr << "Document test failed: " << message << '\n';
+        std::exit(1);
+    }
+}
+
+QByteArray archiveEntry(unzFile archive, const QByteArray &name)
+{
+    require(unzLocateFile(archive, name.constData(), 1) == UNZ_OK, "DOCX must contain the requested part");
+    require(unzOpenCurrentFile(archive) == UNZ_OK, "DOCX part must open");
+    QByteArray result;
+    char buffer[8192];
+    int count = 0;
+    while ((count = unzReadCurrentFile(archive, buffer, sizeof(buffer))) > 0)
+        result.append(buffer, count);
+    require(count == 0 && unzCloseCurrentFile(archive) == UNZ_OK, "DOCX part must pass its CRC check");
+    return result;
+}
+
+bool hasInk(const QImage &image, const QColor &color)
+{
+    for (int y = 0; y < image.height(); ++y)
+        for (int x = 0; x < image.width(); ++x)
+            if (image.pixelColor(x, y) == color)
+                return true;
+    return false;
+}
+
+QRect inkBounds(const QImage &image, const QColor &color)
+{
+    int left = image.width();
+    int top = image.height();
+    int right = -1;
+    int bottom = -1;
+    for (int y = 0; y < image.height(); ++y) {
+        const auto *pixels = reinterpret_cast<const QRgb *>(image.constScanLine(y));
+        for (int x = 0; x < image.width(); ++x) {
+            if (pixels[x] != color.rgb())
+                continue;
+            left = std::min(left, x);
+            top = std::min(top, y);
+            right = std::max(right, x);
+            bottom = y;
+        }
+    }
+    return right < left ? QRect() : QRect(QPoint(left, top), QPoint(right, bottom));
+}
+
+void checkPaperGeometry()
+{
+    const QSize paper = annotationPaperSize();
+    const QRect printable = annotationPrintableRect();
+    require(std::abs(paper.width() - 210.0 * 96 / 25.4) <= 1
+                && std::abs(paper.height() - 297.0 * 96 / 25.4) <= 1,
+            "preview paper must match A4 dimensions at 96 DPI");
+    require(std::abs(printable.left() - 18.0 * 96 / 25.4) <= 1
+                && std::abs(printable.top() - 18.0 * 96 / 25.4) <= 1
+                && std::abs(printable.width() - 174.0 * 96 / 25.4) <= 2,
+            "preview and exports must use 18 mm A4 margins");
+    QFont base(QStringLiteral("Noto Sans CJK JP"));
+    base.setPixelSize(16);
+    const auto lines = layoutAnnotation({{QStringLiteral("あ"), {}, false}}, printable.width());
+    require(std::abs(lines.first().first().width
+                     - QFontMetricsF(base).horizontalAdvance(QStringLiteral("あ"))) < 0.01,
+            "annotated base text must use 16 pixels, equivalent to 12 points at print resolution");
+}
+
+void checkRomaji()
+{
+    const QMap<QString, QString> examples{
+        {QStringLiteral("がっこう"), "gakkou"}, {QStringLiteral("まっちゃ"), "matcha"},
+        {QStringLiteral("しんよう"), "shin'you"}, {QStringLiteral("こんにちは"), "konnichiha"},
+        {QStringLiteral("スーパー"), "suupaa"}, {QStringLiteral("コンピューター"), "konpyuutaa"},
+        {QStringLiteral("ティッシュ"), "tisshu"}, {QStringLiteral("ヴァイオリン"), "vaiorin"},
+        {QStringLiteral("きょう"), "kyou"}, {QStringLiteral("ぢづ"), "jizu"},
+        {QStringLiteral("ABC 123、🙂"), QStringLiteral("ABC 123、🙂")}
+    };
+    for (auto it = examples.cbegin(); it != examples.cend(); ++it) {
+        const QString actual = toRomaji(it.key());
+        if (actual != it.value())
+            std::cerr << it.key().toStdString() << ": " << actual.toStdString() << '\n';
+        require(actual == it.value(), "romaji must handle digraphs, gemination, n-apostrophes and long vowels");
+        QString source;
+        for (const auto &unit : romajiUnits(it.key()))
+            source += unit.text;
+        require(source == it.key(), "romaji units must preserve every original character");
+    }
+    require(romajiUnits(QStringLiteral("スーパー")).size() == 2,
+            "long vowel marks must stay with their preceding kana when wrapping");
+    const auto particles = annotate(QStringLiteral("私は学校へ本を持つ。"));
+    QString roman;
+    for (const auto &segment : particles)
+        roman += toRomaji(!segment.reading.isEmpty() ? segment.reading
+                         : !segment.pronunciation.isEmpty() ? segment.pronunciation : segment.text);
+    require(roman == QStringLiteral("watashiwagakkouehonomotsu。"),
+            "particles ha, he and wo must use their contextual pronunciations");
+}
+
+void checkOptionsAndPixels()
+{
+    const QVector<Segment> sample{
+        {QStringLiteral("私"), QStringLiteral("わたし"), false},
+        {QStringLiteral("は"), {}, false, QStringLiteral("わ")},
+        {QStringLiteral("スーパー"), {}, false},
+        {QStringLiteral("𠮷"), {}, true}
+    };
+    for (const AnnotationOptions options : {AnnotationOptions{}, {true, false}, {false, true},
+                                            {true, true}, {true, true, 1.3}}) {
+        const auto lines = layoutAnnotation(sample, 640, options);
+        require(lines.size() == 1, "short layered example must fit one line");
+        require(lines.first().first().romaji == (options.romaji ? "watashi" : ""),
+                "kanji romaji checkbox must control only its own layer");
+        require(lines.first().first().fullRomaji == (options.fullRomaji ? "watashi" : ""),
+                "full romaji checkbox must control only its own layer");
+        require(lines.first().at(1).romaji.isEmpty(), "kanji-only romaji must not annotate kana");
+        require(lines.first().at(1).fullRomaji == (options.fullRomaji ? "wa" : ""),
+                "full romaji must annotate the kana particle");
+        require(lines.first().last().fullRomaji == (options.fullRomaji ? "?" : ""),
+                "unknown kanji must remain explicitly unknown");
+        const QImage rendered = renderAnnotationPage(lines, 0, lines.size(), 640, options);
+        require(hasInk(rendered, QColor(35, 38, 42)) && hasInk(rendered, QColor(74, 79, 87)),
+                "original text and kana must always remain visible");
+        require(hasInk(rendered, QColor(45, 97, 82)) == options.romaji,
+                "kanji romaji must add a visible independent row");
+        require(hasInk(rendered, QColor(49, 91, 126)) == options.fullRomaji,
+                "full romaji must add a visible independent row");
+
+        AnnotationView view;
+        QVariantList values;
+        for (const auto &segment : sample)
+            values.append(QVariantMap{{"text", segment.text}, {"reading", segment.reading},
+                                      {"unknown", segment.unknown}, {"pronunciation", segment.pronunciation}});
+        view.setWidth(640);
+        view.setSegments(values);
+        view.setRomaji(options.romaji);
+        view.setFullRomaji(options.fullRomaji);
+        view.setFontScale(options.fontScale);
+        view.setHeight(view.implicitHeight());
+        QImage preview(rendered.size(), QImage::Format_RGB32);
+        preview.setDevicePixelRatio(3);
+        preview.fill(Qt::white);
+        QPainter painter(&preview);
+        view.paint(&painter);
+        painter.end();
+        require(preview == rendered, "document page must be pixel-identical to the annotation preview");
+    }
+    require(annotationLineHeight({true, true}) - annotationLineHeight({true, false})
+                == annotationLineHeight({true, false}) - annotationLineHeight(),
+            "each checked option must add exactly one row of height");
+    const auto wrapped = layoutAnnotation(annotate(QStringLiteral("きゃっきゃスーパーしんよう")), 95, {false, true});
+    QString reconstructed;
+    QString roman;
+    for (const auto &line : wrapped) {
+        for (const auto &placement : line) {
+            reconstructed += placement.segment.text;
+            roman += placement.fullRomaji;
+            require(placement.x + placement.width <= 83, "full-text romaji must wrap inside the preview");
+        }
+    }
+    require(reconstructed == QStringLiteral("きゃっきゃスーパーしんよう"),
+            "wrapping full-text romaji must preserve original text");
+    require(roman == "kyakkyasuupaashin'you", "wrapping must not split digraphs or lose long vowels");
+}
+
+void checkDocuments(const QString &directory)
+{
+    QString text;
+    for (int i = 0; i < 36; ++i)
+        text += QStringLiteral("私の歌は、きょうもスーパーへ。\n");
+    text += QStringLiteral("最後");
+    const auto segments = annotate(text);
+    const AnnotationOptions options{true, true};
+    QString error;
+    const qreal width = annotationPrintableRect().width();
+    const auto pages = createAnnotationPages(segments, width, options, &error);
+    const auto lines = layoutAnnotation(segments, width, options);
+    const int perPage = annotationLinesPerPage(width, options);
+    require(pages.size() == (lines.size() + perPage - 1) / perPage && pages.size() > 1,
+            "every annotation line must appear on exactly one document page");
+    QVariantList values;
+    for (const auto &segment : segments)
+        values.append(QVariantMap{{"text", segment.text}, {"reading", segment.reading},
+                                  {"unknown", segment.unknown}, {"pronunciation", segment.pronunciation}});
+    AnnotationView document;
+    document.setWidth(width);
+    document.setSegments(values);
+    document.setRomaji(options.romaji);
+    document.setFullRomaji(options.fullRomaji);
+    require(document.pageCount() == pages.size(), "A4 preview and document must have identical page counts");
+    AnnotationPageView paper;
+    paper.setDocument(&document);
+    for (int page = 0; page < pages.size(); ++page) {
+        QImage decoded = QImage::fromData(pages.at(page).png).convertToFormat(QImage::Format_RGB32);
+        decoded.setDevicePixelRatio(3);
+        require(decoded == renderAnnotationPage(lines, page * perPage, perPage, width, options),
+                "PNG serialization must preserve the shared renderer's pixels on every page");
+        require(pages.at(page).size.height() < 261 * 96 / 25.4, "page content must fit A4 print height");
+        QImage sheet(annotationPaperSize() * 3, QImage::Format_RGB32);
+        sheet.setDevicePixelRatio(3);
+        sheet.fill(Qt::white);
+        QPainter painter(&sheet);
+        painter.setRenderHint(QPainter::TextAntialiasing);
+        paper.setPageIndex(page);
+        paper.paint(&painter);
+        painter.end();
+        const QPoint topLeft = annotationPrintableRect().topLeft() * 3;
+        const QImage previewContent = sheet.copy(QRect(topLeft, decoded.size()));
+        require(previewContent == decoded,
+                "each A4 preview page must match its exported DOCX/clipboard image pixel for pixel");
+    }
+    const QString path = directory + "/annotated.docx";
+    require(exportAnnotatedDocx(path, pages, &error), "multi-page DOCX must export");
+    unzFile archive = unzOpen64(QFile::encodeName(path).constData());
+    require(archive != nullptr, "DOCX must be a readable ZIP archive");
+    for (const auto &name : {QByteArray("[Content_Types].xml"), QByteArray("_rels/.rels"),
+                             QByteArray("word/document.xml"), QByteArray("word/_rels/document.xml.rels")}) {
+        QXmlStreamReader xml(archiveEntry(archive, name));
+        int images = 0;
+        int pageBreaks = 0;
+        while (!xml.atEnd()) {
+            xml.readNext();
+            if (xml.isStartElement() && xml.name() == QLatin1String("blip"))
+                ++images;
+            if (xml.isStartElement() && xml.name() == QLatin1String("pageBreakBefore"))
+                ++pageBreaks;
+        }
+        require(!xml.hasError(), "every DOCX XML part must be well formed");
+        if (name == "word/document.xml")
+            require(images == pages.size() && pageBreaks == pages.size() - 1,
+                    "DOCX must include every page with explicit page breaks");
+    }
+    for (int page = 0; page < pages.size(); ++page)
+        require(archiveEntry(archive, "word/media/page" + QByteArray::number(page + 1) + ".png")
+                    == pages.at(page).png, "DOCX must embed the exact preview images, not reflowed text");
+    require(unzClose(archive) == UNZ_OK, "DOCX archive must close cleanly");
+
+    const auto mime = annotationClipboard(pages);
+    require(mime->hasHtml() && mime->hasFormat("text/rtf"), "clipboard must offer HTML and RTF");
+    const QString html = mime->html();
+    const QByteArray rtf = mime->data("text/rtf");
+    require(html.count("data:image/png;base64,") == pages.size()
+                && rtf.count("\\pngblip") == pages.size(), "both clipboard formats must include all pages");
+    require(rtf.count("\\page\n") == pages.size() - 1, "clipboard RTF must preserve page breaks");
+    for (const auto &page : pages) {
+        require(html.contains(QString::fromLatin1(page.png.toBase64()))
+                    && rtf.contains(page.png.toHex()), "clipboard must embed the exact preview PNG bytes");
+    }
+    require(exportAnnotatedPdf(directory + "/annotated.pdf", segments, &error, options, width),
+            "layered PDF must export with the preview width");
+    const QString pdftoppm = QStandardPaths::findExecutable("pdftoppm");
+    if (!pdftoppm.isEmpty()) {
+        QProcess render;
+        render.start(pdftoppm, {"-r", "288", "-f", "1", "-singlefile", "-png",
+                                directory + "/annotated.pdf", directory + "/pdf-page"});
+        require(render.waitForFinished() && render.exitCode() == 0,
+                "A4 PDF must render for comparison with the preview");
+        const QImage pdf = QImage(directory + "/pdf-page.png").convertToFormat(QImage::Format_RGB32);
+        const QImage docx = QImage::fromData(pages.first().png).convertToFormat(QImage::Format_RGB32);
+        require(!pdf.isNull() && !docx.isNull(), "rendered PDF and DOCX page must be readable");
+        const QPoint margin = annotationPrintableRect().topLeft() * 3;
+        for (const QColor &color : {QColor(35, 38, 42), QColor(74, 79, 87),
+                                    QColor(45, 97, 82), QColor(49, 91, 126)}) {
+            const QRect expected = inkBounds(docx, color).translated(margin);
+            const QRect actual = inkBounds(pdf, color);
+            require(!actual.isEmpty() && !expected.isEmpty()
+                        && std::abs(actual.left() - expected.left()) <= 5
+                        && std::abs(actual.top() - expected.top()) <= 5
+                        && std::abs(actual.right() - expected.right()) <= 5
+                        && std::abs(actual.bottom() - expected.bottom()) <= 5,
+                    "PDF and DOCX must position every text layer identically on the A4 page");
+        }
+    }
+    const QString pdfinfo = QStandardPaths::findExecutable("pdfinfo");
+    if (!pdfinfo.isEmpty()) {
+        QProcess inspect;
+        inspect.start(pdfinfo, {directory + "/annotated.pdf"});
+        require(inspect.waitForFinished() && inspect.exitCode() == 0, "layered PDF must be readable");
+        const auto count = QRegularExpression("Pages:\\s+(\\d+)")
+            .match(QString::fromUtf8(inspect.readAllStandardOutput()));
+        require(count.hasMatch() && count.captured(1).toInt() == pages.size(),
+                "PDF, DOCX and clipboard must have identical page counts");
+    }
+    require(!exportAnnotatedDocx(directory + "/missing/output.docx", pages, &error) && !error.isEmpty(),
+            "invalid DOCX destination must fail explicitly");
+    error.clear();
+    require(createAnnotationPages(segments, 0, options, &error).isEmpty() && !error.isEmpty(),
+            "invalid document width must fail explicitly");
+
+    const QString artifacts = qEnvironmentVariable("SING_JAPANESE_DOCUMENTS");
+    if (!artifacts.isEmpty()) {
+        require(QDir().mkpath(artifacts), "document check output directory must be available");
+        require(exportAnnotatedDocx(artifacts + "/annotated.docx", pages, &error), "save inspection DOCX");
+        require(exportAnnotatedPdf(artifacts + "/annotated.pdf", segments, &error, options, width),
+                "save inspection PDF");
+        QFile rtfFile(artifacts + "/clipboard.rtf");
+        require(rtfFile.open(QIODevice::WriteOnly) && rtfFile.write(rtf) == rtf.size(), "save inspection RTF");
+        QFile htmlFile(artifacts + "/clipboard.html");
+        require(htmlFile.open(QIODevice::WriteOnly) && htmlFile.write(html.toUtf8()) == html.toUtf8().size(),
+                "save inspection HTML");
+    }
+}
+}
+
+int main(int argc, char **argv)
+{
+    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+    QApplication application(argc, argv);
+    QTemporaryDir directory;
+    require(directory.isValid(), "temporary document directory must be available");
+    checkPaperGeometry();
+    checkRomaji();
+    checkOptionsAndPixels();
+    checkDocuments(directory.path());
+    std::cout << "Romaji, independent layers, pixel identity, multi-page DOCX/PDF and clipboard checks passed.\n";
+    return 0;
+}

@@ -25,13 +25,13 @@ jobs:
             build-essential cmake qtbase5-dev qtdeclarative5-dev qtmultimedia5-dev \
             qml-module-qtquick2 qml-module-qtquick-window2 \
             qml-module-qtquick-controls2 qml-module-qtquick-layouts \
-            libqt5multimedia5-plugins libmecab-dev mecab-ipadic-utf8 \
+            libqt5multimedia5-plugins libmecab-dev libminizip-dev mecab-ipadic-utf8 \
             fonts-noto-cjk gstreamer1.0-plugins-good poppler-utils
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build
         run: cmake --build build --parallel 2
-      - name: Test annotation and PDF export
+      - name: Test annotation layers, DOCX/PDF and clipboard export
         run: ctest --test-dir build --output-on-failure
       - name: Package Debian installer
         run: cmake --build build --target package

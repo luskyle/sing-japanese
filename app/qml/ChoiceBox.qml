@@ -3,13 +3,15 @@ import QtQuick.Controls 2.15
 
 ComboBox {
     id: control
-    implicitWidth: 126
-    implicitHeight: 38
-    leftPadding: 13
-    rightPadding: 30
-    font.pixelSize: 12
+    readonly property real uiScale: ApplicationWindow.window ? ApplicationWindow.window.uiScale : 1
+    implicitWidth: Math.max(Math.round(150 * uiScale), label.implicitWidth + leftPadding + rightPadding)
+    implicitHeight: Math.max(Math.round(46 * uiScale), label.implicitHeight + 20)
+    leftPadding: Math.round(14 * uiScale)
+    rightPadding: Math.round(34 * uiScale)
+    font.pixelSize: Math.round(16 * uiScale)
     hoverEnabled: true
     contentItem: Text {
+        id: label
         text: control.displayText
         font: control.font
         color: "#46564c"
@@ -17,11 +19,11 @@ ComboBox {
         elide: Text.ElideRight
     }
     indicator: Text {
-        x: control.width - 24
+        x: control.width - Math.round(26 * control.uiScale)
         y: (control.height - height) / 2
         text: "⌄"
         color: "#6c7d70"
-        font.pixelSize: 16
+        font.pixelSize: Math.round(18 * control.uiScale)
     }
     background: Rectangle {
         radius: 8

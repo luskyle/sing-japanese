@@ -4,130 +4,148 @@ import QtQuick.Layouts 1.15
 
 Item {
     id: page
+    objectName: "kanaPage"
+    property real uiScale: 1
     property bool showRomaji: true
+    readonly property int margin: height < 650 ? 12 : 16
+    readonly property int gap: Math.round(12 * uiScale)
+
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 28
-        spacing: 18
-        RowLayout {
+        anchors.margins: page.margin
+        spacing: page.gap
+
+        Flow {
             Layout.fillWidth: true
-            ColumnLayout {
-                spacing: 5
-                Text { text: "从一个音开始"; font.pixelSize: 25; font.weight: Font.DemiBold; color: "#243d32" }
-                Text { text: "点击假名听原音，认识字形，也记住声音。"; color: "#7b867b"; font.pixelSize: 12 }
+            spacing: Math.round(8 * page.uiScale)
+            ActionButton {
+                objectName: "hiraganaButton"
+                text: "平假名"; selected: !backend.katakana
+                onClicked: backend.katakana = false
             }
-            Item { Layout.fillWidth: true }
-            Text { text: "01 / KANA"; color: "#80937e"; font.pixelSize: 11; font.letterSpacing: 1.5 }
+            ActionButton {
+                objectName: "katakanaButton"
+                text: "片假名"; selected: backend.katakana
+                onClicked: backend.katakana = true
+            }
+            CheckBox {
+                objectName: "romajiToggle"
+                text: "罗马音"; checked: page.showRomaji
+                onToggled: page.showRomaji = checked
+                font.pixelSize: Math.round(16 * page.uiScale)
+                palette.highlight: "#2d6152"
+            }
+            ChoiceBox {
+                objectName: "groupFilter"
+                model: ["全部 · 71", "清音 · 46", "浊音 · 20", "半浊音 · 5"]
+                currentIndex: backend.groupIndex
+                onActivated: backend.groupIndex = currentIndex
+            }
+            ChoiceBox {
+                objectName: "rowFilter"
+                model: backend.rowNames; currentIndex: backend.rowIndex
+                onActivated: backend.rowIndex = currentIndex
+            }
         }
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: 20
-            Rectangle {
-                Layout.fillWidth: true; Layout.fillHeight: true
-                radius: 16; color: "#ffffff"; border.color: "#e1e6dc"
-                ColumnLayout {
-                    anchors.fill: parent; anchors.margins: 18; spacing: 14
-                    RowLayout {
-                        Layout.fillWidth: true; spacing: 6
-                        ActionButton {
-                            objectName: "hiraganaButton"
-                            text: "平假名"; selected: !backend.katakana; implicitWidth: 86
-                            onClicked: backend.katakana = false
-                        }
-                        ActionButton {
-                            objectName: "katakanaButton"
-                            text: "片假名"; selected: backend.katakana; implicitWidth: 86
-                            onClicked: backend.katakana = true
-                        }
-                        Item { Layout.fillWidth: true }
-                        CheckBox {
-                            objectName: "romajiToggle"
-                            text: "罗马音"; checked: page.showRomaji
-                            onToggled: page.showRomaji = checked
-                            font.pixelSize: 11
-                            palette.highlight: "#2d6152"
-                        }
-                    }
-                    RowLayout {
-                        spacing: 8
-                        ChoiceBox {
-                            objectName: "groupFilter"
-                            model: ["全部 · 71", "清音 · 46", "浊音 · 20", "半浊音 · 5"]
-                            currentIndex: backend.groupIndex
-                            onActivated: backend.groupIndex = currentIndex
-                        }
-                        ChoiceBox {
-                            objectName: "rowFilter"
-                            model: backend.rowNames; currentIndex: backend.rowIndex
-                            onActivated: backend.rowIndex = currentIndex
-                        }
-                        Item { Layout.fillWidth: true }
-                    }
-                    Rectangle { Layout.fillWidth: true; height: 1; color: "#edf0e9" }
-                    Flickable {
-                        id: chart
-                        objectName: "kanaChart"
-                        Layout.fillWidth: true; Layout.fillHeight: true
-                        clip: true; contentHeight: chartRows.height
-                        boundsBehavior: Flickable.StopAtBounds
-                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+        Rectangle {
+            Layout.fillWidth: true; Layout.fillHeight: true
+            Layout.minimumHeight: 0
+            radius: 16; color: "#ffffff"; border.color: "#e1e6dc"
+            Item {
+                id: chart
+                objectName: "kanaChart"
+                anchors.fill: parent
+                anchors.margins: Math.round(8 * page.uiScale)
+                readonly property var rows: backend.kanaRows
+                readonly property real cellGap: Math.round(4 * page.uiScale)
+                readonly property real blockGap: Math.round(16 * page.uiScale)
+                readonly property real headingHeight: Math.round(24 * page.uiScale)
+                readonly property int columnCount: Math.max(1, Math.min(
+                    Math.floor((width + blockGap) / (200 * page.uiScale + blockGap)),
+                    Math.ceil(rows.length / Math.max(1,
+                        Math.floor((height - headingHeight) / (64 * page.uiScale + cellGap))))))
+                readonly property int rowsPerBlock: Math.max(1, Math.ceil(rows.length / columnCount))
+                readonly property real rowHeight: Math.max(1, Math.min(82 * page.uiScale,
+                    (height - headingHeight - rowsPerBlock * cellGap) / rowsPerBlock))
+                Row {
+                    spacing: chart.blockGap
+                    Repeater {
+                        model: chart.columnCount
                         Column {
-                            id: chartRows
-                            width: chart.width - 12; spacing: 7
+                            id: block
+                            readonly property int blockIndex: index
+                            readonly property real labelWidth: Math.round(42 * page.uiScale)
+                            readonly property real cellWidth: Math.max(1,
+                                (width - labelWidth - chart.cellGap * 5) / 5)
+                            width: (chart.width - chart.blockGap * (chart.columnCount - 1)) / chart.columnCount
+                            spacing: chart.cellGap
                             Row {
-                                width: parent.width; height: 24
-                                Item { width: 38; height: 1 }
+                                spacing: chart.cellGap
+                                height: chart.headingHeight
+                                Item { width: block.labelWidth; height: 1 }
                                 Repeater {
                                     model: ["a", "i", "u", "e", "o"]
                                     Text {
-                                        width: (chartRows.width - 38) / 5; horizontalAlignment: Text.AlignHCenter
-                                        text: modelData; color: "#96a18f"; font.pixelSize: 11
+                                        objectName: "vowel_" + block.blockIndex + "_" + modelData
+                                        width: block.cellWidth
+                                        horizontalAlignment: Text.AlignHCenter
+                                        text: modelData; color: "#65766a"
+                                        font.pixelSize: Math.round(15 * page.uiScale)
                                     }
                                 }
                             }
                             Repeater {
-                                model: backend.kanaRows
+                                model: chart.rows.slice(block.blockIndex * chart.rowsPerBlock,
+                                    (block.blockIndex + 1) * chart.rowsPerBlock)
                                 Row {
                                     id: kanaRow
                                     property var rowData: modelData
-                                    spacing: 5
-                                    width: chartRows.width; height: page.showRomaji ? 66 : 52
+                                    spacing: chart.cellGap
+                                    height: chart.rowHeight
                                     Text {
-                                        width: 33; height: parent.height
-                                        text: kanaRow.rowData.name; color: "#929d8c"; font.pixelSize: 9
+                                        width: block.labelWidth; height: parent.height
+                                        text: kanaRow.rowData.name; color: "#65766a"
+                                        font.pixelSize: Math.round(14 * page.uiScale)
                                         verticalAlignment: Text.AlignVCenter
                                     }
                                     Repeater {
                                         model: kanaRow.rowData.cells
                                         Item {
-                                            width: (chartRows.width - 38 - 25) / 5
-                                            height: kanaRow.height
+                                            width: block.cellWidth; height: kanaRow.height
                                             ActionButton {
                                                 id: kanaButton
                                                 objectName: modelData.id ? "kana_" + modelData.id : ""
                                                 anchors.fill: parent
                                                 visible: !!modelData.id
+                                                verticalPadding: 1; horizontalPadding: 2
                                                 property bool isCurrent: modelData.id === backend.selected.id
                                                 text: modelData.character || ""
                                                 Accessible.name: text
                                                 onClicked: backend.selectKana(modelData.id)
                                                 background: Rectangle {
-                                                    radius: 10
+                                                    radius: 8
                                                     color: kanaButton.isCurrent ? "#e5eee4" : kanaButton.hovered ? "#f0f4ed" : "#f8f9f5"
                                                     border.color: kanaButton.activeFocus ? "#2d6152" : kanaButton.isCurrent ? "#91ae8c" : "#edf0e8"
                                                     Behavior on color { ColorAnimation { duration: 120 } }
                                                 }
-                                                contentItem: Column {
-                                                    spacing: 1
+                                                contentItem: Item {
                                                     Text {
-                                                        width: parent.width; text: modelData.character || ""
-                                                        font.pixelSize: 26; color: kanaButton.isCurrent ? "#2d6152" : "#34453b"
+                                                        width: parent.width
+                                                        height: parent.height - (roman.visible ? roman.height : 0)
+                                                        text: modelData.character || ""
+                                                        font.pixelSize: Math.round(31 * page.uiScale)
+                                                        minimumPixelSize: 18
+                                                        fontSizeMode: Text.Fit
+                                                        color: kanaButton.isCurrent ? "#2d6152" : "#34453b"
                                                         horizontalAlignment: Text.AlignHCenter
+                                                        verticalAlignment: Text.AlignVCenter
                                                     }
                                                     Text {
+                                                        id: roman
+                                                        anchors.bottom: parent.bottom
                                                         width: parent.width; visible: page.showRomaji
-                                                        text: modelData.romaji || ""; color: "#8a9685"; font.pixelSize: 9
+                                                        text: modelData.romaji || ""; color: "#65766a"
+                                                        font.pixelSize: Math.round(14 * page.uiScale)
                                                         horizontalAlignment: Text.AlignHCenter
                                                     }
                                                 }
@@ -140,59 +158,43 @@ Item {
                     }
                 }
             }
-            Rectangle {
-                Layout.preferredWidth: page.width < 950 ? 212 : 262
-                Layout.fillHeight: true
-                radius: 16; color: "#e9eee2"; border.color: "#dce4d3"
-                Flickable {
-                    id: detailScroll
-                    objectName: "pronunciationScroll"
-                    anchors.fill: parent; anchors.margins: 23
-                    contentHeight: detailContents.height
-                    clip: true
-                    boundsBehavior: Flickable.StopAtBounds
-                    ScrollBar.vertical: ScrollBar {}
-                    Column {
-                        id: detailContents
-                        width: detailScroll.width
-                        spacing: 12
-                        Text { text: "发音手帖"; color: "#678066"; font.pixelSize: 11; font.letterSpacing: 2 }
-                        Item { width: 1; height: 16 }
-                        Text {
-                            width: parent.width; horizontalAlignment: Text.AlignHCenter
-                            text: backend.selected.character
-                            font.pixelSize: page.width < 950 ? 84 : 108; color: "#2e5340"
-                        }
-                        Text {
-                            objectName: "selectedRomaji"
-                            visible: page.showRomaji
-                            width: parent.width; horizontalAlignment: Text.AlignHCenter
-                            text: backend.selected.romaji; color: "#678066"; font.pixelSize: 18
-                        }
-                        Text {
-                            width: parent.width; horizontalAlignment: Text.AlignHCenter
-                            text: (backend.katakana ? "平假名  " : "片假名  ") + backend.selected.counterpart
-                            color: "#7f8e75"; font.pixelSize: 12
-                        }
-                        Item { width: 1; height: 10 }
-                        ActionButton {
-                            objectName: "replayButton"
-                            width: parent.width; primary: true
-                            text: backend.playing ? "正在播放…" : "播放原音"
-                            onClicked: backend.replay()
-                        }
-                        Text {
-                            text: "真人录音 · 离线播放"
-                            width: parent.width; horizontalAlignment: Text.AlignHCenter
-                            color: "#8c9981"; font.pixelSize: 10
-                        }
-                        Rectangle { width: parent.width; height: 1; color: "#d4dfca" }
-                        Text {
-                            width: parent.width
-                            text: backend.selected.note
-                            wrapMode: Text.Wrap; color: "#6a7c61"; font.pixelSize: 12; lineHeight: 1.55
-                        }
-                    }
+        }
+        Rectangle {
+            objectName: "pronunciationDetails"
+            Layout.fillWidth: true
+            Layout.preferredHeight: Math.max(64 * page.uiScale, detailRow.implicitHeight + 20)
+            radius: 12; color: "#e9eee2"; border.color: "#dce4d3"
+            RowLayout {
+                id: detailRow
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: page.gap
+                Text {
+                    text: backend.selected.character
+                    font.pixelSize: Math.round(40 * page.uiScale); color: "#2e5340"
+                }
+                Text {
+                    objectName: "selectedRomaji"
+                    visible: page.showRomaji
+                    text: backend.selected.romaji; color: "#526e57"
+                    font.pixelSize: Math.round(20 * page.uiScale)
+                }
+                Text {
+                    text: (backend.katakana ? "平假名  " : "片假名  ") + backend.selected.counterpart
+                    color: "#5e735f"; font.pixelSize: Math.round(16 * page.uiScale)
+                }
+                ActionButton {
+                    objectName: "replayButton"
+                    primary: true
+                    text: backend.playing ? "正在播放…" : "播放原音"
+                    onClicked: backend.replay()
+                }
+                Text {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    text: backend.selected.note
+                    wrapMode: Text.Wrap; color: "#51684f"
+                    font.pixelSize: Math.round(14 * page.uiScale)
                 }
             }
         }

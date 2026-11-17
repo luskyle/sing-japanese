@@ -1,11 +1,13 @@
 #pragma once
 
 #include "annotator.h"
+#include "annotationview.h"
 
 #include <QObject>
 #include <QMediaPlayer>
 #include <QVariantList>
 #include <QStringList>
+#include <QTemporaryDir>
 
 class Backend final : public QObject
 {
@@ -22,6 +24,10 @@ class Backend final : public QObject
     Q_PROPERTY(QString status READ status NOTIFY lyricsChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
     Q_PROPERTY(bool playing READ playing NOTIFY playingChanged)
+    Q_PROPERTY(bool romaji READ romaji WRITE setRomaji NOTIFY annotationOptionsChanged)
+    Q_PROPERTY(bool fullRomaji READ fullRomaji WRITE setFullRomaji NOTIFY annotationOptionsChanged)
+    Q_PROPERTY(qreal previewWidth READ previewWidth WRITE setPreviewWidth NOTIFY previewWidthChanged)
+    Q_PROPERTY(qreal previewFontScale READ previewFontScale WRITE setPreviewFontScale NOTIFY annotationOptionsChanged)
 
 public:
     explicit Backend(QObject *parent = nullptr);
@@ -37,6 +43,14 @@ public:
     QString status() const { return status_; }
     QString error() const { return error_; }
     bool playing() const { return player_.state() == QMediaPlayer::PlayingState; }
+    bool romaji() const { return annotationOptions_.romaji; }
+    bool fullRomaji() const { return annotationOptions_.fullRomaji; }
+    qreal previewWidth() const { return previewWidth_; }
+    qreal previewFontScale() const { return annotationOptions_.fontScale; }
+    void setRomaji(bool value);
+    void setFullRomaji(bool value);
+    void setPreviewWidth(qreal value);
+    void setPreviewFontScale(qreal value);
     void setKatakana(bool value);
     void setGroupIndex(int value);
     void setRowIndex(int value);
@@ -47,6 +61,11 @@ public:
     Q_INVOKABLE void annotateText();
     Q_INVOKABLE void choosePdf();
     Q_INVOKABLE bool savePdf(const QString &path);
+    Q_INVOKABLE void chooseDocx();
+    Q_INVOKABLE bool saveDocx(const QString &path);
+    Q_INVOKABLE bool previewPdf();
+    Q_INVOKABLE bool previewDocx();
+    Q_INVOKABLE bool copyForWord();
     Q_INVOKABLE void clearError();
 
 signals:
@@ -55,10 +74,14 @@ signals:
     void resultChanged();
     void errorChanged();
     void playingChanged();
+    void annotationOptionsChanged();
+    void previewWidthChanged();
 
 private:
     void refreshSelection();
     void fail(const QString &message);
+    bool previewDocument(bool docx);
+    void chooseDocument(bool docx);
     bool katakana_ = false;
     int groupIndex_ = 0;
     int rowIndex_ = 0;
@@ -69,4 +92,7 @@ private:
     QString error_;
     QVector<Segment> annotated_;
     QMediaPlayer player_;
+    AnnotationOptions annotationOptions_;
+    qreal previewWidth_ = annotationPrintableRect().width();
+    QTemporaryDir previewDirectory_;
 };

@@ -5,12 +5,14 @@ Button {
     id: control
     property bool primary: false
     property bool selected: false
-    implicitHeight: 40
-    implicitWidth: Math.max(92, implicitContentWidth + 32)
-    padding: 10
-    horizontalPadding: 16
+    property bool compact: false
+    readonly property real uiScale: ApplicationWindow.window ? ApplicationWindow.window.uiScale : 1
+    implicitHeight: Math.max(Math.round((compact ? 34 : 46) * uiScale), implicitContentHeight + verticalPadding * 2)
+    implicitWidth: Math.max(Math.round((compact ? 78 : 100) * uiScale), implicitContentWidth + horizontalPadding * 2)
+    verticalPadding: Math.round((compact ? 5 : 10) * uiScale)
+    horizontalPadding: Math.round((compact ? 10 : 16) * uiScale)
     hoverEnabled: true
-    font.pixelSize: 13
+    font.pixelSize: Math.round((compact ? 14 : 16) * uiScale)
     font.weight: Font.Medium
     contentItem: Text {
         text: control.text

@@ -1,12 +1,19 @@
 #include "backend.h"
 #include "annotationview.h"
+#include "documentexport.h"
 
+#include <QClipboard>
+#include <QDesktopServices>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <QGuiApplication>
+#include <QUuid>
+
+#include <cmath>
 
 namespace {
 struct KanaRow {
@@ -201,7 +208,7 @@ QVariantList Backend::segments() const
     QVariantList result;
     for (const Segment &segment : annotated_)
         result.append(QVariantMap{{"text", segment.text}, {"reading", segment.reading},
-                                  {"unknown", segment.unknown}});
+                                  {"unknown", segment.unknown}, {"pronunciation", segment.pronunciation}});
     return result;
 }
 
@@ -225,12 +232,26 @@ void Backend::annotateText()
 
 void Backend::choosePdf()
 {
+    chooseDocument(false);
+}
+
+void Backend::chooseDocx()
+{
+    chooseDocument(true);
+}
+
+void Backend::chooseDocument(bool docx)
+{
     if (!canExport()) { fail(QStringLiteral("请先完成当前原文的注音。")); return; }
-    QString path = QFileDialog::getSaveFileName(nullptr, QStringLiteral("导出 A4 PDF"),
-                                               QStringLiteral("lyrics.pdf"), QStringLiteral("PDF 文件 (*.pdf)"));
+    const QString extension = docx ? QStringLiteral(".docx") : QStringLiteral(".pdf");
+    QString path = QFileDialog::getSaveFileName(nullptr,
+        docx ? QStringLiteral("导出保留排版的 DOCX") : QStringLiteral("导出 A4 PDF"),
+        "lyrics" + extension,
+        docx ? QStringLiteral("Word 文档 (*.docx)") : QStringLiteral("PDF 文件 (*.pdf)"));
     if (path.isEmpty()) return;
-    if (!path.endsWith(".pdf", Qt::CaseInsensitive)) path += ".pdf";
-    savePdf(path);
+    if (!path.endsWith(extension, Qt::CaseInsensitive)) path += extension;
+    if (docx) saveDocx(path);
+    else savePdf(path);
 }
 
 bool Backend::savePdf(const QString &path)
@@ -238,8 +259,96 @@ bool Backend::savePdf(const QString &path)
     clearError();
     if (!canExport()) { fail(QStringLiteral("请先完成当前原文的注音。")); return false; }
     QString error;
-    if (!exportAnnotatedPdf(path, annotated_, &error)) { fail(error); return false; }
+    if (!exportAnnotatedPdf(path, annotated_, &error, annotationOptions_, previewWidth_)) {
+        fail(error);
+        return false;
+    }
     status_ = QStringLiteral("已导出：%1").arg(QFileInfo(path).fileName());
     emit lyricsChanged();
     return true;
+}
+
+bool Backend::saveDocx(const QString &path)
+{
+    clearError();
+    if (!canExport()) { fail(QStringLiteral("请先完成当前原文的注音。")); return false; }
+    QString error;
+    const auto pages = createAnnotationPages(annotated_, previewWidth_, annotationOptions_, &error);
+    if (pages.isEmpty() || !exportAnnotatedDocx(path, pages, &error)) { fail(error); return false; }
+    status_ = QStringLiteral("已导出 DOCX：%1（图片式保留排版）").arg(QFileInfo(path).fileName());
+    emit lyricsChanged();
+    return true;
+}
+
+bool Backend::previewPdf() { return previewDocument(false); }
+bool Backend::previewDocx() { return previewDocument(true); }
+
+bool Backend::previewDocument(bool docx)
+{
+    clearError();
+    if (!canExport()) { fail(QStringLiteral("请先完成当前原文的注音。")); return false; }
+    if (!previewDirectory_.isValid()) { fail(QStringLiteral("无法创建文档预览目录。")); return false; }
+    const QString path = previewDirectory_.filePath(
+        QUuid::createUuid().toString(QUuid::WithoutBraces) + (docx ? ".docx" : ".pdf"));
+    if (!(docx ? saveDocx(path) : savePdf(path)))
+        return false;
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path))) {
+        fail(docx ? QStringLiteral("无法打开 DOCX。请安装并关联 Word、WPS 或 LibreOffice，或使用导出 DOCX。")
+                  : QStringLiteral("无法打开 PDF。请安装并关联 PDF 阅读器，或使用导出 PDF。"));
+        return false;
+    }
+    status_ = QStringLiteral("已将 %1 交给系统应用；若未打开，请安装对应阅读器。")
+        .arg(docx ? "DOCX" : "PDF");
+    emit lyricsChanged();
+    return true;
+}
+
+bool Backend::copyForWord()
+{
+    clearError();
+    if (!canExport()) { fail(QStringLiteral("请先完成当前原文的注音。")); return false; }
+    QString error;
+    const auto pages = createAnnotationPages(annotated_, previewWidth_, annotationOptions_, &error);
+    if (pages.isEmpty()) { fail(error); return false; }
+    QGuiApplication::clipboard()->setMimeData(annotationClipboard(pages).release());
+    status_ = QStringLiteral("已复制全部 %1 页；在 Word 中保留源格式粘贴（图片式，文字不可单独编辑）。")
+        .arg(pages.size());
+    emit lyricsChanged();
+    return true;
+}
+
+void Backend::setRomaji(bool value)
+{
+    if (annotationOptions_.romaji == value) return;
+    annotationOptions_.romaji = value;
+    emit annotationOptionsChanged();
+}
+
+void Backend::setFullRomaji(bool value)
+{
+    if (annotationOptions_.fullRomaji == value) return;
+    annotationOptions_.fullRomaji = value;
+    emit annotationOptionsChanged();
+}
+
+void Backend::setPreviewWidth(qreal value)
+{
+    if (!std::isfinite(value) || value <= 0) {
+        fail(QStringLiteral("无效的注音预览宽度。"));
+        return;
+    }
+    if (qFuzzyCompare(previewWidth_, value)) return;
+    previewWidth_ = value;
+    emit previewWidthChanged();
+}
+
+void Backend::setPreviewFontScale(qreal value)
+{
+    if (!std::isfinite(value) || value <= 0) {
+        fail(QStringLiteral("无效的注音字号缩放比例。"));
+        return;
+    }
+    if (qFuzzyCompare(annotationOptions_.fontScale, value)) return;
+    annotationOptions_.fontScale = value;
+    emit annotationOptionsChanged();
 }

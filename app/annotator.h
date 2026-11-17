@@ -7,6 +7,7 @@ struct Segment {
     QString text;
     QString reading;
     bool unknown = false;
+    QString pronunciation = {};
 };
 
 QVector<Segment> annotate(const QString &text);

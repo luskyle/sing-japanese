@@ -8,6 +8,8 @@
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
     QApplication application(argc, argv);
     application.setApplicationName("假名小调");
     application.setOrganizationName("Sing Japanese");
@@ -15,6 +17,7 @@ int main(int argc, char *argv[])
     application.setFont(QFont("Noto Sans CJK JP", 10));
 
     qmlRegisterType<AnnotationView>("SingJapanese", 1, 0, "AnnotationView");
+    qmlRegisterType<AnnotationPageView>("SingJapanese", 1, 0, "AnnotationPageView");
     Backend backend;
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("backend", &backend);

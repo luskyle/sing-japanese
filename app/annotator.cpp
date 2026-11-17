@@ -5,6 +5,8 @@
 #include <QByteArray>
 #include <QRegularExpression>
 
+#include <algorithm>
+#include <functional>
 #include <memory>
 #include <stdexcept>
 
@@ -34,6 +36,66 @@ QString readingFromFeature(const char *feature)
     return toHiragana(QString::fromUtf8(fields.at(7)));
 }
 
+QVector<Segment> alignReading(const QString &text, const QString &reading)
+{
+    const QVector<Segment> fallback{{text, reading, false}};
+    if (reading.isEmpty())
+        return fallback;
+
+    QVector<QString> runs;
+    QVector<bool> kanji;
+    for (uint codePoint : text.toUcs4()) {
+        const QString character = QString::fromUcs4(&codePoint, 1);
+        const bool isKanji = containsKanji(character);
+        if (runs.isEmpty() || kanji.last() != isKanji) {
+            runs.append(character);
+            kanji.append(isKanji);
+        } else {
+            runs.last() += character;
+        }
+    }
+    if (runs.size() < 2)
+        return fallback;
+
+    // Kana in the surface form anchors the reading. Only split an unambiguous match.
+    QVector<QVector<int>> matches(runs.size(), QVector<int>(reading.size() + 1, -1));
+    std::function<int(int, int)> countMatches = [&](int run, int offset) -> int {
+        if (run == runs.size())
+            return offset == reading.size() ? 1 : 0;
+        int &count = matches[run][offset];
+        if (count >= 0)
+            return count;
+        count = 0;
+        if (!kanji.at(run)) {
+            const QString anchor = toHiragana(runs.at(run));
+            if (reading.midRef(offset, anchor.size()) == anchor)
+                count = countMatches(run + 1, offset + anchor.size());
+        } else {
+            for (int end = offset + 1; end <= reading.size() && count < 2; ++end)
+                count = std::min(2, count + countMatches(run + 1, end));
+        }
+        return count;
+    };
+    if (countMatches(0, 0) != 1)
+        return fallback;
+
+    QVector<Segment> result;
+    int offset = 0;
+    for (int run = 0; run < runs.size(); ++run) {
+        if (!kanji.at(run)) {
+            result.push_back({runs.at(run), {}, false});
+            offset += runs.at(run).size();
+        } else {
+            int end = offset + 1;
+            while (countMatches(run + 1, end) == 0)
+                ++end;
+            result.push_back({runs.at(run), reading.mid(offset, end - offset), false});
+            offset = end;
+        }
+    }
+    return result;
+}
+
 void appendLine(const QString &line, QVector<Segment> &result)
 {
     const QByteArray utf8 = line.toUtf8();
@@ -58,7 +120,18 @@ void appendLine(const QString &line, QVector<Segment> &result)
 
         const QString text = QString::fromUtf8(surface);
         const QString reading = containsKanji(text) ? readingFromFeature(node->feature) : QString();
-        result.push_back({text, reading, containsKanji(text) && reading.isEmpty()});
+        if (reading.isEmpty()) {
+            QString pronunciation = text;
+            const QList<QByteArray> fields = QByteArray(node->feature).split(',');
+            if (fields.first() == "助詞") {
+                if (text == QStringLiteral("は")) pronunciation = QStringLiteral("わ");
+                if (text == QStringLiteral("へ")) pronunciation = QStringLiteral("え");
+                if (text == QStringLiteral("を")) pronunciation = QStringLiteral("お");
+            }
+            result.push_back({text, {}, containsKanji(text), pronunciation});
+        } else {
+            result += alignReading(text, reading);
+        }
         byteCursor = start + surface.size();
         node = node->next;
     }

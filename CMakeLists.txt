@@ -13,6 +13,8 @@ set(CMAKE_AUTORCC ON)
 find_package(Qt5 5.15 REQUIRED COMPONENTS Widgets Quick Qml Multimedia PrintSupport)
 find_path(MECAB_INCLUDE_DIR mecab.h REQUIRED)
 find_library(MECAB_LIBRARY NAMES mecab REQUIRED)
+find_path(MINIZIP_INCLUDE_DIR zip.h PATH_SUFFIXES minizip REQUIRED)
+find_library(MINIZIP_LIBRARY NAMES minizip REQUIRED)
 
 file(GLOB AUDIO_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/public/audio/*.ogg")
 list(LENGTH AUDIO_FILES AUDIO_COUNT)
@@ -31,6 +33,10 @@ add_executable(sing-japanese
   app/main.cpp
   app/annotator.cpp
   app/annotator.h
+  app/romaji.cpp
+  app/romaji.h
+  app/documentexport.cpp
+  app/documentexport.h
   app/annotationview.cpp
   app/annotationview.h
   app/backend.cpp
@@ -38,9 +44,9 @@ add_executable(sing-japanese
   app/qml.qrc
   "${CMAKE_CURRENT_BINARY_DIR}/audio.qrc"
 )
-target_include_directories(sing-japanese PRIVATE "${MECAB_INCLUDE_DIR}")
+target_include_directories(sing-japanese PRIVATE "${MECAB_INCLUDE_DIR}" "${MINIZIP_INCLUDE_DIR}")
 target_link_libraries(sing-japanese PRIVATE
-  Qt5::Widgets Qt5::Quick Qt5::Qml Qt5::Multimedia Qt5::PrintSupport "${MECAB_LIBRARY}"
+  Qt5::Widgets Qt5::Quick Qt5::Qml Qt5::Multimedia Qt5::PrintSupport "${MECAB_LIBRARY}" "${MINIZIP_LIBRARY}"
 )
 target_compile_options(sing-japanese PRIVATE -Wall -Wextra -Wpedantic)
 
@@ -59,7 +65,7 @@ set(CPACK_PACKAGE_CONTACT "luskyle")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "luskyle")
 set(CPACK_DEBIAN_PACKAGE_SECTION "education")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS
-  "libqt5widgets5, libqt5quick5, libqt5qml5, qml-module-qtquick2, qml-module-qtquick-window2, qml-module-qtquick-controls2, qml-module-qtquick-layouts, libqt5multimedia5, libqt5multimedia5-plugins, libqt5printsupport5, libmecab2, mecab-ipadic-utf8, fonts-noto-cjk, gstreamer1.0-plugins-good")
+  "libqt5widgets5, libqt5quick5, libqt5qml5, qml-module-qtquick2, qml-module-qtquick-window2, qml-module-qtquick-controls2, qml-module-qtquick-layouts, libqt5multimedia5, libqt5multimedia5-plugins, libqt5printsupport5, libmecab2, libminizip1, mecab-ipadic-utf8, fonts-noto-cjk, gstreamer1.0-plugins-good")
 set(CPACK_GENERATOR "DEB")
 include(CPack)
 
@@ -68,6 +74,10 @@ add_executable(sing-japanese-tests
   tests/test_annotator.cpp
   app/annotator.cpp
   app/annotator.h
+  app/romaji.cpp
+  app/romaji.h
+  app/documentexport.cpp
+  app/documentexport.h
   app/annotationview.cpp
   app/annotationview.h
   app/backend.cpp
@@ -75,11 +85,28 @@ add_executable(sing-japanese-tests
   app/qml.qrc
   "${CMAKE_CURRENT_BINARY_DIR}/audio.qrc"
 )
-target_include_directories(sing-japanese-tests PRIVATE "${MECAB_INCLUDE_DIR}" app)
+target_include_directories(sing-japanese-tests PRIVATE "${MECAB_INCLUDE_DIR}" "${MINIZIP_INCLUDE_DIR}" app)
 target_link_libraries(sing-japanese-tests PRIVATE
-  Qt5::Widgets Qt5::Quick Qt5::Qml Qt5::Multimedia Qt5::PrintSupport "${MECAB_LIBRARY}"
+  Qt5::Widgets Qt5::Quick Qt5::Qml Qt5::Multimedia Qt5::PrintSupport "${MECAB_LIBRARY}" "${MINIZIP_LIBRARY}"
 )
 target_compile_options(sing-japanese-tests PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME sing-japanese-tests COMMAND sing-japanese-tests)
 set_tests_properties(sing-japanese-tests PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
+
+add_executable(sing-japanese-document-tests
+  tests/test_documents.cpp
+  app/annotator.cpp
+  app/romaji.cpp
+  app/annotationview.cpp
+  app/annotationview.h
+  app/documentexport.cpp
+)
+target_include_directories(sing-japanese-document-tests PRIVATE
+  "${MECAB_INCLUDE_DIR}" "${MINIZIP_INCLUDE_DIR}" app)
+target_link_libraries(sing-japanese-document-tests PRIVATE
+  Qt5::Widgets Qt5::Quick Qt5::PrintSupport "${MECAB_LIBRARY}" "${MINIZIP_LIBRARY}")
+target_compile_options(sing-japanese-document-tests PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME sing-japanese-document-tests COMMAND sing-japanese-document-tests)
+set_tests_properties(sing-japanese-document-tests PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")

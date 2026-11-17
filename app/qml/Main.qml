@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import QtQuick.Window 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 
@@ -6,14 +7,15 @@ ApplicationWindow {
     id: window
     objectName: "mainWindow"
     visible: true
-    width: 1120
-    height: 800
-    minimumWidth: 800
-    minimumHeight: 620
+    width: Math.min(1360, Screen.desktopAvailableWidth)
+    height: Math.min(900, Screen.desktopAvailableHeight)
+    minimumWidth: Math.min(1120, Screen.desktopAvailableWidth)
+    minimumHeight: Math.min(800, Screen.desktopAvailableHeight)
     title: "假名小调"
     color: "#f4f3ec"
     font.family: "Noto Sans CJK JP"
-    font.pixelSize: 13
+    font.pixelSize: Math.round(16 * uiScale)
+    readonly property real uiScale: Math.max(1, Math.min(1.3, Math.min(width / 1120, height / 800)))
     property int page: 0
     onPageChanged: backend.stopAudio()
 
@@ -25,21 +27,27 @@ ApplicationWindow {
         spacing: 0
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 82
+            Layout.preferredHeight: Math.max(Math.round(80 * window.uiScale), headerRow.implicitHeight + 20)
             color: "#fcfcf8"
             RowLayout {
+                id: headerRow
                 anchors.fill: parent
-                anchors.leftMargin: 28
-                anchors.rightMargin: 28
-                spacing: 14
+                anchors.leftMargin: window.width < 700 ? 16 : 28
+                anchors.rightMargin: window.width < 700 ? 16 : 28
+                spacing: Math.round(12 * window.uiScale)
                 Rectangle {
-                    width: 42; height: 42; radius: 13; color: "#2d6152"
-                    Text { anchors.centerIn: parent; text: "あ"; color: "#ffffff"; font.pixelSize: 26 }
+                    Layout.preferredWidth: Math.round(46 * window.uiScale)
+                    Layout.preferredHeight: Layout.preferredWidth
+                    radius: 13; color: "#2d6152"
+                    Text { anchors.centerIn: parent; text: "あ"; color: "#ffffff"; font.pixelSize: Math.round(28 * window.uiScale) }
                 }
                 Column {
                     spacing: 3
-                    Text { text: "假名小调"; font.pixelSize: 18; font.weight: Font.DemiBold; color: "#243d32" }
-                    Text { text: "S I N G   J A P A N E S E"; font.pixelSize: 9; color: "#839087" }
+                    Text { text: "假名小调"; font.pixelSize: Math.round(20 * window.uiScale); font.weight: Font.DemiBold; color: "#243d32" }
+                    Text {
+                        visible: window.width >= 700
+                        text: "SING JAPANESE"; font.pixelSize: Math.round(14 * window.uiScale); color: "#65766b"
+                    }
                 }
                 Item { Layout.fillWidth: true }
                 RowLayout {
@@ -61,20 +69,20 @@ ApplicationWindow {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: visible ? errorText.implicitHeight + 28 : 0
+            Layout.preferredHeight: visible ? Math.max(errorText.implicitHeight, dismiss.implicitHeight) + 24 : 0
             visible: backend.error.length > 0
             color: "#fff1ea"
             Text {
                 id: errorText
                 anchors.left: parent.left; anchors.right: dismiss.left
-                anchors.margins: 24; anchors.verticalCenter: parent.verticalCenter
-                text: backend.error; color: "#9b4935"; font.pixelSize: 12; wrapMode: Text.Wrap
+                anchors.margins: 16; anchors.verticalCenter: parent.verticalCenter
+                text: backend.error; color: "#9b4935"; font.pixelSize: Math.round(16 * window.uiScale); wrapMode: Text.Wrap
                 Accessible.role: Accessible.AlertMessage
             }
             ActionButton {
                 id: dismiss
                 anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter
-                text: "关闭"; implicitHeight: 30; implicitWidth: 60
+                text: "关闭"
                 onClicked: backend.clearError()
             }
         }
@@ -82,19 +90,11 @@ ApplicationWindow {
         StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumHeight: 0
             currentIndex: window.page
-            KanaPage {}
-            LyricsPage {}
+            KanaPage { uiScale: window.uiScale }
+            LyricsPage { uiScale: window.uiScale }
         }
 
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 28; Layout.rightMargin: 28; Layout.bottomMargin: 15
-            spacing: 6
-            Rectangle { width: 5; height: 5; radius: 3; color: "#618c77" }
-            Text { text: "本地运行 · 无需联网"; color: "#7c887f"; font.pixelSize: 10 }
-            Item { Layout.fillWidth: true }
-            Text { text: "让文字与声音，慢慢熟悉。"; color: "#91998e"; font.pixelSize: 10 }
-        }
     }
 }
