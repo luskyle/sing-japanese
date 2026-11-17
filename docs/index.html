@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="假名小调：离线学习 71 个日语假名，为日语文本标注假名与罗马音，预览并导出 A4 PDF、DOCX。">
+    <meta name="theme-color" content="#2d6152">
+    <title>假名小调 · 日语假名学习与歌词注音</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./"><span aria-hidden="true">あ</span> 假名小调</a>
+      <nav aria-label="主导航">
+        <a href="#screenshots">运行截图</a>
+        <a href="#install">安装</a>
+        <a href="https://github.com/luskyle/sing-japanese">GitHub</a>
+      </nav>
+    </header>
+    <main>
+      <section class="hero">
+        <p class="eyebrow">Linux 桌面应用 · 无账号 · 离线处理</p>
+        <h1>认识假名，<br>读懂每一个音。</h1>
+        <p class="intro">一屏学习日语假名，为歌词和日语文本添加假名、罗马音，把清晰对齐的注音稿带到纸上。</p>
+        <div class="actions">
+          <a class="button" href="https://github.com/luskyle/sing-japanese/releases/latest">下载最新版本</a>
+          <a class="button secondary" href="https://github.com/luskyle/sing-japanese#readme">使用与构建文档</a>
+        </div>
+        <p class="muted">目前提供 Ubuntu / Debian x86_64 安装包。此网站是介绍页，不会上传或处理你的文本。</p>
+      </section>
+      <section class="features" aria-label="核心功能">
+        <article><h2>假名，一眼看全</h2><p>71 个假名按窗口自动分栏，切换平假名、片假名与罗马音，点击即可听真人发音。</p></article>
+        <article><h2>注音，清晰对应</h2><p>MeCab / IPADIC 本地词典分析，假名与原文居中对齐；两种罗马音层独立叠加，注音单元之间留白。</p></article>
+        <article><h2>A4，从屏幕到纸张</h2><p>A4 分页预览，支持 PDF、DOCX、复制到 Word；缩放显示不改变文档的换行和分页。</p></article>
+      </section>
+      <section id="screenshots" class="screenshots">
+        <h2>实际运行截图</h2>
+        <p class="muted">以下为 Linux 下真实 Qt 桌面界面，示例文本用于演示学习和排版。</p>
+        <figure>
+          <a href="assets/kana.png"><img src="assets/kana.png" alt="假名学习页，71 个假名分栏同屏展示，底部提供选中假名的发音信息" width="2720" height="1800" loading="lazy"></a>
+          <figcaption>假名学习：全部假名同屏可见，支持筛选和本地真人发音。</figcaption>
+        </figure>
+        <figure>
+          <a href="assets/annotation.png"><img src="assets/annotation.png" alt="歌词注音页，左侧原文、右侧 A4 注音稿，假名与两种罗马音层居中对应，操作按钮位于底部" width="2720" height="1800" loading="lazy"></a>
+          <figcaption>歌词注音：A4 纸张预览，假名与罗马音层可叠加，预览、复制、导出集中在底部。</figcaption>
+        </figure>
+      </section>
+      <section id="install" class="install">
+        <h2>安装与使用</h2>
+        <ol>
+          <li>从 <a href="https://github.com/luskyle/sing-japanese/releases/latest">GitHub Releases</a> 下载 <code>.deb</code> 安装包。</li>
+          <li>在下载目录执行以下命令，自动安装系统依赖。</li>
+        </ol>
+        <pre><code>sudo apt install ./sing-japanese-0.3.0-Linux.deb
+sing-japanese</code></pre>
+        <p>给文本注音后，勾选需要的罗马音层，再预览或导出。快捷键：<kbd>Ctrl</kbd> + <kbd>Enter</kbd> 注音，<kbd>Ctrl</kbd> + <kbd>S</kbd> 导出 PDF。</p>
+        <aside>
+          <h3>使用前请注意</h3>
+          <ul>
+            <li>DOCX 与复制到 Word 使用高清图片排版，以保持预览效果；其中的文字不能单独编辑。粘贴时请选择“保留源格式”。</li>
+            <li>文档预览交给系统关联应用打开，需安装 Word、WPS、LibreOffice 或 PDF 阅读器。</li>
+            <li>每次最多处理 20,000 个 Unicode 字符。词典读音不一定适用于人名、歧义用法或歌词中的特殊唱法。</li>
+            <li>无法唯一拆分的连续汉字词保留整词注音，不猜测逐字读音。未知汉字不猜读音。</li>
+          </ul>
+        </aside>
+      </section>
+    </main>
+    <footer>
+      <p>假名小调 · C++17 / Qt 5 Quick / MeCab / IPADIC</p>
+      <a href="https://github.com/luskyle/sing-japanese/blob/main/public/RESOURCE-LICENSE.md">音频来源与许可</a>
+      <a href="https://github.com/luskyle/sing-japanese/issues">反馈问题</a>
+    </footer>
+  </body>
+</html>

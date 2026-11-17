@@ -188,6 +188,71 @@ void checkOptionsAndPixels()
     require(roman == "kyakkyasuupaashin'you", "wrapping must not split digraphs or lose long vowels");
 }
 
+void checkRomajiSpacing()
+{
+    const QVector<Segment> sample{
+        {QStringLiteral("学校"), QStringLiteral("がっこう"), false},
+        {QStringLiteral("新聞"), QStringLiteral("しんぶん"), false},
+        {QStringLiteral("私"), QStringLiteral("わたし"), false},
+        {QStringLiteral("きゃっきゃスーパーしんよう"), {}, false}
+    };
+    for (const AnnotationOptions options : {AnnotationOptions{true, false}, {false, true},
+                                            {true, true}, {true, true, 1.3}}) {
+        QFont reading(QStringLiteral("Noto Sans CJK JP"));
+        reading.setPixelSize(qRound(10 * options.fontScale));
+        const QFontMetricsF metrics(reading);
+        for (const qreal width : {qreal(180), qreal(640)}) {
+            const auto lines = layoutAnnotation(sample, width, options);
+            const QImage rendered = renderAnnotationPage(lines, 0, lines.size(), width, options);
+            QString original;
+            for (int lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
+                const auto &line = lines.at(lineIndex);
+                for (const auto &placement : line) {
+                    original += placement.segment.text;
+                    require(placement.x + placement.width <= width - annotationContentPadding() + 0.01,
+                            "spaced romaji must wrap inside the printable area");
+                }
+                for (const QColor &color : {QColor(45, 97, 82), QColor(49, 91, 126)}) {
+                    qreal previousRight = -1;
+                    int previousInkRight = -1;
+                    for (const auto &placement : line) {
+                        const QString roman = color == QColor(45, 97, 82)
+                            ? placement.romaji : placement.fullRomaji;
+                        if (roman.isEmpty())
+                            continue;
+                        const qreal textWidth = metrics.horizontalAdvance(roman) * placement.textScale;
+                        const qreal left = placement.x + (placement.width - textWidth) / 2;
+                        if (previousRight >= 0)
+                            require(left - previousRight >= 12 * options.fontScale - 0.01,
+                                    "adjacent romaji labels must have at least 12 scaled pixels of separation");
+                        previousRight = left + textWidth;
+                        const int top = qRound((annotationContentPadding()
+                            + lineIndex * annotationLineHeight(options)) * 3);
+                        const QRect region(qRound(placement.x * 3), top,
+                                           int(std::floor(placement.width * 3)),
+                                           int(annotationLineHeight(options) * 3));
+                        const QRect ink = inkBounds(rendered.copy(region), color);
+                        require(!ink.isEmpty(), "each romaji label must render visible ink");
+                        const int inkLeft = region.left() + ink.left();
+                        const int inkRight = region.left() + ink.right();
+                        if (previousInkRight >= 0)
+                            require(inkLeft - previousInkRight >= qRound(10 * options.fontScale * 3),
+                                    "rendered romaji labels must remain visually separated");
+                        require(std::abs((inkLeft + inkRight) / 6.0
+                                         - (placement.x + placement.width / 2)) <= 2 * options.fontScale,
+                                "each rendered romaji label must stay centered over its original text");
+                        previousInkRight = inkRight;
+                    }
+                }
+            }
+            QString expected;
+            for (const auto &segment : sample)
+                expected += segment.text;
+            require(original == expected, "adding romaji spacing must preserve all original characters");
+        }
+    }
+}
+
 void checkDocuments(const QString &directory)
 {
     QString text;
@@ -337,6 +402,7 @@ int main(int argc, char **argv)
     checkPaperGeometry();
     checkRomaji();
     checkOptionsAndPixels();
+    checkRomajiSpacing();
     checkDocuments(directory.path());
     std::cout << "Romaji, independent layers, pixel identity, multi-page DOCX/PDF and clipboard checks passed.\n";
     return 0;

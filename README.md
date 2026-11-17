@@ -1,9 +1,32 @@
 # 假名小调
 
-轻量离线日语桌面工具，只做两件事：学习假名、给日语文本注音并导出 DOCX / A4 PDF。
-使用 C++17、Qt 5 Quick/QML、Minizip 和系统 MeCab/IPADIC；没有 Rust/Tauri、账号、网络服务或大模型。
-界面采用暖白与鼠尾草绿配色，只保留假名学习、歌词注音两个页面。
-预览与 PDF 共用振假名排版逻辑；保存 PDF 时使用系统文件对话框。
+[![桌面 CI](https://github.com/luskyle/sing-japanese/actions/workflows/ci.yml/badge.svg)](https://github.com/luskyle/sing-japanese/actions/workflows/ci.yml)
+[![GitHub Pages](https://github.com/luskyle/sing-japanese/actions/workflows/pages.yml/badge.svg)](https://github.com/luskyle/sing-japanese/actions/workflows/pages.yml)
+[![最新版本](https://img.shields.io/github/v/release/luskyle/sing-japanese)](https://github.com/luskyle/sing-japanese/releases/latest)
+
+轻量离线日语桌面工具：一屏学习假名，为歌词和日语文本添加假名、罗马音，并导出排版一致的 DOCX / A4 PDF。
+暖白与鼠尾草绿配色，只有假名学习、歌词注音两个页面；无需账号，不上传文本。
+
+**[项目网站](https://luskyle.github.io/sing-japanese/) · [下载安装包](https://github.com/luskyle/sing-japanese/releases/latest) · [反馈问题](https://github.com/luskyle/sing-japanese/issues)**
+
+目前提供 **Ubuntu / Debian x86_64** 安装包；使用 C++17、Qt 5 Quick/QML、Minizip 和系统 MeCab/IPADIC。
+
+## 实际运行截图
+
+以下为 Linux 下真实运行的桌面界面，点击图片可查看原图。
+
+### 假名学习
+
+全部 71 个假名自动分栏同屏展示，支持字形切换、分组筛选、罗马音开关和真人发音。
+
+[![假名学习：全部假名同屏展示](docs/assets/kana.png)](docs/assets/kana.png)
+
+### 歌词注音
+
+原文与 A4 注音稿并排显示，两种罗马音层独立叠加，预览、复制、导出按钮固定在底部。
+截图使用日常日语示例文本。
+
+[![歌词注音：A4 预览与清晰分隔的罗马音](docs/assets/annotation.png)](docs/assets/annotation.png)
 
 ## 功能
 
@@ -11,13 +34,14 @@
 - 假名表根据窗口大小分栏，全部 71 个假名同屏展示，无需滚动；选中假名的发音信息显示在底部。
 - 点击假名播放随程序打包的本地真人发音。
 - 粘贴日语文本，使用本机 MeCab/IPADIC 标注振假名。
-- 界面支持系统高 DPI 缩放，控件随窗口放大；小窗口自动换行、纵向排列并可滚动。
+- 界面支持系统高 DPI 缩放，控件随窗口放大；选项自动换行，假名自动分栏，长文在纸张区域内滚动。
 - 默认窗口为 1360 × 900 逻辑像素（小屏幕自动适配）。
 - 窗口最小尺寸为 1120 × 800 逻辑像素，不能继续缩小；屏幕可用区域不足时，以下限不超过可用区域为准。系统高 DPI 缩放会自动换算为实际像素。
 - 原文按 A4 页宽连续编辑；注音稿按 A4 纸张与 18 毫米页边距分页预览。正文使用 12 磅，注音使用 7.5 磅。
 - 原文与注音稿占满可用高度，注音、预览、复制和导出按钮固定在页面底部；长文仅在纸张区域内滚动。
 - 默认按面板宽度缩放纸张，可用「放大到 100% / 适合宽度」切换；页面缩放只影响屏幕显示，不影响导出字号、换行或分页。
 - 注音稿按读音宽度自动留出原文间距，假名居中显示在对应汉字上方；行高随字体度量计算，避免上下行重叠。
+- 罗马音注音单元之间额外留白，原文随注音宽度拉开并保持居中对应，避免相邻罗马音连在一起；预览与导出使用相同间距。
 - 「汉字加注罗马音」在汉字读音上增加罗马音层；「全部内容加注罗马音」额外给汉字、平假名、片假名等内容加注罗马音。
   两项独立勾选、即时生效，均不替代原有假名；同时勾选时保留两个罗马音层。
 - 保留输入中的标点、空格及换行；未知汉字词保留原文并以点线标记。
@@ -45,7 +69,7 @@ PDF 也使用同样的 A4 排版。极长且不可拆分的词组会等比缩小
 
 ## 安装与运行（Ubuntu / Debian）
 
-下载 Debian 安装包后，在安装包所在目录执行：
+从 [最新 Release](https://github.com/luskyle/sing-japanese/releases/latest) 下载 Debian 安装包后，在安装包所在目录执行：
 
 ```sh
 sudo apt install ./sing-japanese-0.3.0-Linux.deb
@@ -54,6 +78,9 @@ sing-japanese
 
 使用 `apt install ./包名.deb` 安装会一并安装运行依赖；不要只从包中提取可执行文件运行。
 安装包本身约 2 MB，不包含系统 Qt 库和 IPADIC 词典，首次安装还需下载这些依赖。
+其他平台暂不提供安装包。
+
+Release 同时提供 `SHA256SUMS`，与安装包放在同一目录后可执行 `sha256sum --check SHA256SUMS` 校验下载内容。
 
 如果直接运行自行编译的程序时出现 `libQt5Multimedia.so.5` 或 `libmecab.so.2` 缺失：
 
@@ -95,6 +122,16 @@ cpack -G DEB
 Debian 包依赖 Qt 5、Minizip、MeCab/IPADIC、Noto CJK 字体和 GStreamer Ogg 插件。IPADIC 声明保存在
 [`public/licenses/IPADIC-NOTICE.txt`](public/licenses/IPADIC-NOTICE.txt)。
 
+## GitHub Pages 与 CI/CD
+
+- [桌面 CI](.github/workflows/ci.yml)：推送到 `main`、提交 PR 或手动触发后，构建 Qt 应用，运行 UI 和文档测试，并上传 Debian 安装包。
+- [Pages 工作流](.github/workflows/pages.yml)：`docs/` 或站点工作流变更后自动校验并部署静态网站；PR 仅构建，不部署。网站地址为 <https://luskyle.github.io/sing-japanese/>。
+- [Release 工作流](.github/workflows/release.yml)：推送 `vX.Y.Z` 标签后，核对标签与 CMake 版本，构建、测试并生成安装包和 SHA-256 校验文件，然后使用仓库中的[发版说明](.github/release-notes/v0.3.0.md)发布正式 Release。
+  也可在 Actions 中手动指定已有版本标签重试；不会覆盖已正式发布的版本。
+
+网站直接部署 [`docs/`](docs/)，无需 Node.js、第三方主题或外部字体。新仓库需在 Settings → Pages 中将 Source 设为 GitHub Actions。
+发布新版本时，先更新 `CMakeLists.txt` 版本和安装示例，添加 `.github/release-notes/vX.Y.Z.md`，待主分支 CI 通过后再推送对应标签。
+
 ## 项目结构
 
 ```text
@@ -103,6 +140,8 @@ app/qml/             # QML 双页界面与控件
 tests/               # QML 加载与交互、注音、原文保留及 PDF 导出测试
 public/audio/        # 离线假名录音，通过 Qt 资源嵌入程序
 public/licenses/     # 词典许可声明
+docs/                # GitHub Pages 静态网站与真实运行截图
+.github/workflows/   # 桌面 CI、Pages 部署与 Release 发布
 ```
 
 歌词注音页支持 `Ctrl+Enter` 注音、`Ctrl+S` 导出当前结果。

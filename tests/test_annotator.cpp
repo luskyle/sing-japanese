@@ -549,8 +549,8 @@ int main(int argc, char **argv)
         auto *editor = control(window, "lyricsInput");
         require(editor->property("font").value<QFont>().pixelSize() == 16,
                 "input lyrics must use A4 print-scale 12-point text");
-        const QString sample = QStringLiteral("私の帰る家は\nあなたの声のする街角\n冬の雨に打たれて\nあなたの足音をさがすのよ\n")
-                               + QString(60, QChar(0x3042));
+        const QString sample = QStringLiteral("私は家へ帰る。\n図書館で日本語を勉強します。\n学校の新聞を読みます。\nきょうはスーパーで買い物をします。\n")
+                               + QStringLiteral("ひらがなとカタカナの発音を練習します。").repeated(3);
         editor->setProperty("text", sample);
         auto *inputViewport = qobject_cast<QQuickItem *>(control(window, "originalPaperScroll"));
         auto *editorItem = qobject_cast<QQuickItem *>(editor);

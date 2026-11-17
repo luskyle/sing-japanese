@@ -4,12 +4,17 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build and publish (for example v0.3.0)
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: desktop-release-${{ github.ref }}
+  group: desktop-release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -18,14 +23,21 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.tag || github.ref }}
       - name: Validate release version
         run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           VERSION="$(sed -n 's/^project(sing_japanese VERSION \([^ )]*\).*/\1/p' CMakeLists.txt)"
-          test "$GITHUB_REF_NAME" = "v$VERSION"
+          test "$RELEASE_TAG" = "v$VERSION"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          test -s ".github/release-notes/$RELEASE_TAG.md"
       - name: Install build and runtime dependencies
         run: |
           sudo apt-get update
@@ -41,12 +53,27 @@ jobs:
           cmake --build build --parallel 2
           ctest --test-dir build --output-on-failure
           cmake --build build --target package
-      - name: Publish Debian installer
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+      - name: Generate checksums
+        working-directory: build
+        run: sha256sum ./*.deb > SHA256SUMS
+      - name: Preserve release artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sing-japanese-${{ env.RELEASE_TAG }}-linux
+          path: |
+            build/*.deb
+            build/SHA256SUMS
+          if-no-files-found: error
+      - name: Publish release
         run: |
-          gh release create "$RELEASE_TAG" build/*.deb \
-            --verify-tag --draft --generate-notes \
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = true
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft \
+              --title "假名小调 $RELEASE_TAG" \
+              --notes-file ".github/release-notes/$RELEASE_TAG.md"
+          fi
+          gh release upload "$RELEASE_TAG" build/*.deb build/SHA256SUMS --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest \
             --title "假名小调 $RELEASE_TAG" \
-            --notes "Linux Qt 桌面版：假名学习、离线日语注音、可叠加罗马音及 DOCX / A4 PDF 导出。需要 Qt 5、Minizip、MeCab/IPADIC 和 GStreamer 运行依赖；文档预览需系统关联的阅读器。"
+            --notes-file ".github/release-notes/$RELEASE_TAG.md"

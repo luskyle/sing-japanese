@@ -15,6 +15,7 @@
 namespace {
 constexpr qreal kPadding = 12.0;
 constexpr qreal kReadingGap = 4.0;
+constexpr qreal kRomajiGap = 12.0;
 constexpr qreal kLineGap = 12.0;
 constexpr int kPrintResolution = 96;
 
@@ -136,10 +137,13 @@ QVector<AnnotationLine> layoutAnnotation(const QVector<Segment> &segments, qreal
             : segment.unknown ? QStringLiteral("?")
             : toRomaji(!segment.reading.isEmpty() ? segment.reading
                        : !segment.pronunciation.isEmpty() ? segment.pronunciation : segment.text);
+        const qreal horizontalGap = !romaji.isEmpty() || !fullRomaji.isEmpty()
+            ? kRomajiGap * options.fontScale
+            : segment.reading.isEmpty() ? 0 : kReadingGap;
         const qreal itemWidth = std::max({baseWidth, rubyWidth,
                                          rubyMetrics.horizontalAdvance(romaji),
                                          rubyMetrics.horizontalAdvance(fullRomaji)})
-            + (segment.reading.isEmpty() && fullRomaji.isEmpty() ? 0 : kReadingGap);
+            + horizontalGap;
         const qreal textScale = itemWidth > available ? available / itemWidth : 1;
         const qreal placedWidth = itemWidth * textScale;
         if (x > 0 && x + placedWidth > available)
