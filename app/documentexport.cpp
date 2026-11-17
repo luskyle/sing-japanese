@@ -8,6 +8,10 @@
 #include <QSaveFile>
 #include <QTemporaryFile>
 
+#ifdef Q_OS_WIN
+#include <iowin32.h>
+#endif
+
 #include <algorithm>
 #include <cmath>
 
@@ -75,7 +79,14 @@ bool exportAnnotatedDocx(const QString &path, const QVector<AnnotationPage> &pag
         return false;
     }
     temporary.close();
+#ifdef Q_OS_WIN
+    zlib_filefunc64_def fileFunctions{};
+    fill_win32_filefunc64W(&fileFunctions);
+    ZipArchive archive{zipOpen2_64(temporary.fileName().toStdWString().c_str(),
+                                  APPEND_STATUS_CREATE, nullptr, &fileFunctions)};
+#else
     ZipArchive archive{zipOpen64(QFile::encodeName(temporary.fileName()).constData(), APPEND_STATUS_CREATE)};
+#endif
     if (!archive.handle) {
         if (error) *error = QStringLiteral("无法创建 DOCX 文档。");
         return false;

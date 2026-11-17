@@ -23,7 +23,7 @@ $oldPath = $env:PATH
 $env:PATH = "$env:SystemRoot/system32;$env:SystemRoot"
 $env:QT_PLUGIN_PATH = ''
 $env:QML2_IMPORT_PATH = ''
-$env:QT_QPA_PLATFORM = 'offscreen'
+$env:QT_QPA_PLATFORM = 'windows'
 $env:QT_QUICK_BACKEND = 'software'
 try {
     $process = Start-Process "$stage/sing-japanese.exe" -ArgumentList '--smoke-test' -PassThru

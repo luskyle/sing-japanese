@@ -302,6 +302,10 @@ void checkDocuments(const QString &directory)
     }
     const QString path = directory + "/annotated.docx";
     require(exportAnnotatedDocx(path, pages, &error), "multi-page DOCX must export");
+    const QString unicodeDirectory = directory + QStringLiteral("/日语文稿");
+    require(QDir().mkpath(unicodeDirectory)
+                && exportAnnotatedDocx(unicodeDirectory + QStringLiteral("/唱日语.docx"), pages, &error),
+            "DOCX must export inside Unicode directories on every platform");
     unzFile archive = unzOpen64(QFile::encodeName(path).constData());
     require(archive != nullptr, "DOCX must be a readable ZIP archive");
     for (const auto &name : {QByteArray("[Content_Types].xml"), QByteArray("_rels/.rels"),

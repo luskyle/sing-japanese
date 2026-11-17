@@ -434,6 +434,7 @@ int main(int argc, char **argv)
     require(!engine.rootObjects().isEmpty(), "QML window must load");
     auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
     require(window, "QML root must be a window");
+    require(window->title() == QStringLiteral("唱日语"), "window must use the current product name");
     require(qFuzzyCompare(window->devicePixelRatio(), window->screen()->devicePixelRatio()),
             "window must respect the screen DPI including native and application scale factors");
     const QSize available = window->screen()->availableGeometry().size();

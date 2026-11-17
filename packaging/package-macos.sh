@@ -25,7 +25,7 @@ done < <(find "$app" -type f -print0)
 codesign --force --deep --sign - "$app"
 codesign --verify --deep --strict "$app"
 env -u DYLD_LIBRARY_PATH -u QT_PLUGIN_PATH -u QML2_IMPORT_PATH \
-  QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
+  QT_QPA_PLATFORM=cocoa QT_QUICK_BACKEND=software \
   "$app/Contents/MacOS/sing-japanese" --smoke-test
 ln -s /Applications "$stage/Applications"
 hdiutil create -volname "唱日语" -srcfolder "$stage" -ov -format UDZO \

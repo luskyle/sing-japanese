@@ -11,10 +11,15 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 find_package(Qt5 5.15 REQUIRED COMPONENTS Widgets Quick Qml Multimedia PrintSupport)
+find_package(ZLIB REQUIRED)
 find_path(MECAB_INCLUDE_DIR mecab.h PATH_SUFFIXES mecab REQUIRED)
 find_library(MECAB_LIBRARY NAMES mecab REQUIRED)
 find_path(MINIZIP_INCLUDE_DIR zip.h PATH_SUFFIXES minizip REQUIRED)
 find_library(MINIZIP_LIBRARY NAMES minizip libminizip REQUIRED)
+
+if(WIN32)
+  add_compile_definitions(NOMINMAX)
+endif()
 
 if(MSVC)
   add_compile_options(/W4 /utf-8)
@@ -82,7 +87,7 @@ set_target_properties(sing-japanese PROPERTIES
   MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/packaging/Info.plist.in")
 target_include_directories(sing-japanese PRIVATE "${MECAB_INCLUDE_DIR}" "${MINIZIP_INCLUDE_DIR}")
 target_link_libraries(sing-japanese PRIVATE
-  Qt5::Widgets Qt5::Quick Qt5::Qml Qt5::Multimedia Qt5::PrintSupport "${MECAB_LIBRARY}" "${MINIZIP_LIBRARY}"
+  Qt5::Widgets Qt5::Quick Qt5::Qml Qt5::Multimedia Qt5::PrintSupport "${MECAB_LIBRARY}" "${MINIZIP_LIBRARY}" ZLIB::ZLIB
 )
 
 include(GNUInstallDirs)
@@ -149,7 +154,7 @@ add_executable(sing-japanese-tests
 )
 target_include_directories(sing-japanese-tests PRIVATE "${MECAB_INCLUDE_DIR}" "${MINIZIP_INCLUDE_DIR}" app)
 target_link_libraries(sing-japanese-tests PRIVATE
-  Qt5::Widgets Qt5::Quick Qt5::Qml Qt5::Multimedia Qt5::PrintSupport "${MECAB_LIBRARY}" "${MINIZIP_LIBRARY}"
+  Qt5::Widgets Qt5::Quick Qt5::Qml Qt5::Multimedia Qt5::PrintSupport "${MECAB_LIBRARY}" "${MINIZIP_LIBRARY}" ZLIB::ZLIB
 )
 add_test(NAME sing-japanese-tests COMMAND sing-japanese-tests)
 set_tests_properties(sing-japanese-tests PROPERTIES
@@ -167,7 +172,7 @@ add_executable(sing-japanese-document-tests
 target_include_directories(sing-japanese-document-tests PRIVATE
   "${MECAB_INCLUDE_DIR}" "${MINIZIP_INCLUDE_DIR}" app)
 target_link_libraries(sing-japanese-document-tests PRIVATE
-  Qt5::Widgets Qt5::Quick Qt5::PrintSupport "${MECAB_LIBRARY}" "${MINIZIP_LIBRARY}")
+  Qt5::Widgets Qt5::Quick Qt5::PrintSupport "${MECAB_LIBRARY}" "${MINIZIP_LIBRARY}" ZLIB::ZLIB)
 add_test(NAME sing-japanese-document-tests COMMAND sing-japanese-document-tests)
 set_tests_properties(sing-japanese-document-tests PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
