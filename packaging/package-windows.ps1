@@ -17,7 +17,7 @@ Copy-Item "$($crt.FullName)/*.dll" $stage
 [Paths]
 Prefix=.
 Plugins=.
-Qml2Imports=qml
+Qml2Imports=.
 '@ | Set-Content "$stage/qt.conf" -Encoding ascii
 $oldPath = $env:PATH
 $env:PATH = "$env:SystemRoot/system32;$env:SystemRoot"
@@ -25,8 +25,12 @@ $env:QT_PLUGIN_PATH = ''
 $env:QML2_IMPORT_PATH = ''
 $env:QT_QPA_PLATFORM = 'windows'
 $env:QT_QUICK_BACKEND = 'software'
+$env:QT_FORCE_STDERR_LOGGING = '1'
+$smokeOutput = Join-Path $PWD 'build/windows-smoke-stdout.log'
+$smokeError = Join-Path $PWD 'build/windows-smoke-stderr.log'
 try {
-    $process = Start-Process "$stage/sing-japanese.exe" -ArgumentList '--smoke-test' -PassThru
+    $process = Start-Process "$stage/sing-japanese.exe" -ArgumentList '--smoke-test' -PassThru `
+        -RedirectStandardOutput $smokeOutput -RedirectStandardError $smokeError
     if (-not $process.WaitForExit(30000)) {
         Stop-Process -Id $process.Id
         throw 'Packaged application smoke test timed out'
@@ -34,6 +38,9 @@ try {
     if ($process.ExitCode -ne 0) { throw "Packaged application failed: $($process.ExitCode)" }
 } finally {
     $env:PATH = $oldPath
+    foreach ($log in @($smokeOutput, $smokeError)) {
+        if (Test-Path $log) { Get-Content $log }
+    }
 }
 New-Item -ItemType Directory -Force release | Out-Null
 Compress-Archive -Path $stage -DestinationPath "release/sing-japanese-$version-Windows-x86_64.zip"
