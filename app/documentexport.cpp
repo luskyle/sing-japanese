@@ -6,7 +6,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
-#include <QTemporaryFile>
+#include <QTemporaryDir>
 
 #ifdef Q_OS_WIN
 #include <iowin32.h>
@@ -73,19 +73,19 @@ bool exportAnnotatedDocx(const QString &path, const QVector<AnnotationPage> &pag
         if (error) *error = QStringLiteral("没有可导出的注音稿页面。");
         return false;
     }
-    QTemporaryFile temporary(QFileInfo(path).absolutePath() + "/.sing-japanese-XXXXXX.docx");
-    if (!temporary.open()) {
-        if (error) *error = QStringLiteral("无法创建 DOCX 临时文件：%1").arg(temporary.errorString());
+    QTemporaryDir temporary(QFileInfo(path).absolutePath() + "/.sing-japanese-XXXXXX");
+    if (!temporary.isValid()) {
+        if (error) *error = QStringLiteral("无法创建 DOCX 临时目录：%1").arg(temporary.errorString());
         return false;
     }
-    temporary.close();
+    const QString temporaryPath = temporary.filePath("annotation.docx");
 #ifdef Q_OS_WIN
     zlib_filefunc64_def fileFunctions{};
     fill_win32_filefunc64W(&fileFunctions);
-    ZipArchive archive{zipOpen2_64(temporary.fileName().toStdWString().c_str(),
+    ZipArchive archive{zipOpen2_64(temporaryPath.toStdWString().c_str(),
                                   APPEND_STATUS_CREATE, nullptr, &fileFunctions)};
 #else
-    ZipArchive archive{zipOpen64(QFile::encodeName(temporary.fileName()).constData(), APPEND_STATUS_CREATE)};
+    ZipArchive archive{zipOpen64(QFile::encodeName(temporaryPath).constData(), APPEND_STATUS_CREATE)};
 #endif
     if (!archive.handle) {
         if (error) *error = QStringLiteral("无法创建 DOCX 文档。");
@@ -156,7 +156,7 @@ bool exportAnnotatedDocx(const QString &path, const QVector<AnnotationPage> &pag
         if (error) *error = QStringLiteral("DOCX 内容写入失败，未替换目标文件。");
         return false;
     }
-    QFile source(temporary.fileName());
+    QFile source(temporaryPath);
     QSaveFile target(path);
     if (!source.open(QIODevice::ReadOnly) || !target.open(QIODevice::WriteOnly)) {
         if (error) *error = QStringLiteral("无法保存 DOCX：%1").arg(
