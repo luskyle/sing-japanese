@@ -94,6 +94,7 @@ jobs:
         run: |
           git -C "$VCPKG_INSTALLATION_ROOT" fetch origin 0df93a05b9de080129e653ec4776d7e14a1b2e4f --depth 1
           git -C "$VCPKG_INSTALLATION_ROOT" checkout --detach 0df93a05b9de080129e653ec4776d7e14a1b2e4f
+          sed -i 's/\r$//' "$VCPKG_INSTALLATION_ROOT/ports/mecab/fix_wpath_unsigned.patch" packaging/mecab-msvc-unicode.patch
           git -C "$VCPKG_INSTALLATION_ROOT" apply "$GITHUB_WORKSPACE/packaging/mecab-msvc-unicode.patch"
           "$VCPKG_INSTALLATION_ROOT/bootstrap-vcpkg.bat" -disableMetrics
           "$VCPKG_INSTALLATION_ROOT/vcpkg.exe" install mecab:x64-windows minizip:x64-windows
