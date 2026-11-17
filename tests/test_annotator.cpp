@@ -302,6 +302,7 @@ int main(int argc, char **argv)
     QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
     QApplication application(argc, argv);
     require(loadBundledFont(), "bundled Japanese font must load");
+    application.setFont(QFont("Noto Sans CJK JP", 10));
     QTemporaryDir directory;
     require(directory.isValid(), "temporary directory must be created");
     qputenv("XDG_CACHE_HOME", directory.path().toUtf8());

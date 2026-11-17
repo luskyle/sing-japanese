@@ -7,8 +7,8 @@ Item {
     objectName: "kanaPage"
     property real uiScale: 1
     property bool showRomaji: true
-    readonly property int margin: height < 650 ? 12 : 16
-    readonly property int gap: Math.round(12 * uiScale)
+    readonly property int margin: height < 650 ? 8 : 16
+    readonly property int gap: Math.round((height < 650 ? 8 : 12) * uiScale)
 
     ColumnLayout {
         anchors.fill: parent
@@ -162,7 +162,8 @@ Item {
         Rectangle {
             objectName: "pronunciationDetails"
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.max(64 * page.uiScale, detailRow.implicitHeight + 20)
+            Layout.preferredHeight: Math.max(64 * page.uiScale, selectedCharacter.implicitHeight + 20,
+                replay.implicitHeight + 20, detailNote.implicitHeight + 20)
             radius: 12; color: "#e9eee2"; border.color: "#dce4d3"
             RowLayout {
                 id: detailRow
@@ -170,8 +171,9 @@ Item {
                 anchors.margins: 10
                 spacing: page.gap
                 Text {
+                    id: selectedCharacter
                     text: backend.selected.character
-                    font.pixelSize: Math.round(40 * page.uiScale); color: "#2e5340"
+                    font.pixelSize: Math.round((page.height < 650 ? 32 : 40) * page.uiScale); color: "#2e5340"
                 }
                 Text {
                     objectName: "selectedRomaji"
@@ -184,12 +186,14 @@ Item {
                     color: "#5e735f"; font.pixelSize: Math.round(16 * page.uiScale)
                 }
                 ActionButton {
+                    id: replay
                     objectName: "replayButton"
                     primary: true
                     text: backend.playing ? "正在播放…" : "播放原音"
                     onClicked: backend.replay()
                 }
                 Text {
+                    id: detailNote
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     text: backend.selected.note
