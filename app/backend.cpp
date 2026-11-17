@@ -72,7 +72,11 @@ Backend::Backend(QObject *parent) : QObject(parent)
     connect(&player_, &QMediaPlayer::stateChanged, this, &Backend::playingChanged);
     connect(&player_, QOverload<QMediaPlayer::Error>::of(&QMediaPlayer::error), this,
             [this](QMediaPlayer::Error) {
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
+        fail(QStringLiteral("录音播放失败：%1。请检查音频输出设备，并尝试重新安装应用。")
+#else
         fail(QStringLiteral("录音播放失败：%1。请确认 Qt Multimedia 插件和 GStreamer 已安装。")
+#endif
                  .arg(player_.errorString()));
     });
 }

@@ -10,6 +10,9 @@ Copy-Item "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/*.dll" $stage
 Copy-Item runtime/licenses "$stage/licenses" -Recurse
 windeployqt --release --no-translations --compiler-runtime --qmldir app/qml "$stage/sing-japanese.exe"
 if ($LASTEXITCODE) { throw 'Qt deployment failed' }
+if (-not (Test-Path "$stage/audio/qtaudio_windows.dll")) {
+    throw 'Windows audio device plugin was not deployed'
+}
 $crt = Get-ChildItem "$env:VCToolsRedistDir/x64" -Directory -Filter 'Microsoft.VC*.CRT' | Select-Object -First 1
 if (-not $crt) { throw 'Cannot find the redistributable MSVC runtime' }
 Copy-Item "$($crt.FullName)/*.dll" $stage

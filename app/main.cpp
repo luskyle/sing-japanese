@@ -3,6 +3,7 @@
 #include "bundledfont.h"
 
 #include <QApplication>
+#include <QAudioDeviceInfo>
 #include <QFont>
 #include <QMessageBox>
 #include <QDebug>
@@ -47,7 +48,17 @@ int main(int argc, char *argv[])
             qCritical() << backend.error();
             return 1;
         }
-        backend.replay();
+        QMediaPlayer audioService;
+        if (!audioService.isAvailable()) {
+            qCritical() << "Qt Multimedia playback service is unavailable";
+            return 1;
+        }
+        const auto audioDevices = QAudioDeviceInfo::availableDevices(QAudio::AudioOutput);
+        qInfo() << "Smoke-test audio output devices:" << audioDevices.size();
+        if (audioDevices.isEmpty())
+            qInfo() << "No audio output device; hardware playback skipped, multimedia service verified";
+        else
+            backend.replay();
         QTimer::singleShot(1000, &application, [&] {
             if (!backend.error().isEmpty())
                 qCritical() << backend.error();
