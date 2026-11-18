@@ -5,5 +5,7 @@
     <file>qml/LyricsPage.qml</file>
     <file>qml/ActionButton.qml</file>
     <file>qml/ChoiceBox.qml</file>
+    <file>qml/Theme.qml</file>
+    <file>qml/OptionCheckBox.qml</file>
   </qresource>
 </RCC>

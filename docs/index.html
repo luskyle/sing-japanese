@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="唱日语：离线学习 71 个日语假名，为日语文本标注假名与罗马音，预览并导出 A4 PDF、DOCX。支持 Windows、macOS 与 Linux。">
+    <meta name="description" content="唱日语：离线学习 71 个日语假名，为日语文本标注假名与罗马音，预览、打印并导出 A4 PDF、DOCX。支持深色模式及 Windows、macOS 与 Linux。">
     <meta name="theme-color" content="#2d6152">
     <title>唱日语 · 日语假名学习与歌词注音</title>
     <link rel="stylesheet" href="styles.css">
@@ -31,18 +31,18 @@
       <section class="features" aria-label="核心功能">
         <article><h2>假名，一眼看全</h2><p>71 个假名按窗口自动分栏，切换平假名、片假名与罗马音，点击即可听真人发音。</p></article>
         <article><h2>注音，清晰对应</h2><p>MeCab / IPADIC 本地词典分析，假名与原文居中对齐；两种罗马音层独立叠加，注音单元之间留白。</p></article>
-        <article><h2>A4，从屏幕到纸张</h2><p>A4 分页预览，支持 PDF、DOCX、复制到 Word；缩放显示不改变文档的换行和分页。</p></article>
+        <article><h2>A4，从屏幕到纸张</h2><p>A4 分页预览，支持系统打印、PDF、DOCX、复制到 Word；缩放显示不改变文档的换行和分页。</p></article>
       </section>
       <section id="screenshots" class="screenshots">
         <h2>实际运行截图</h2>
-        <p class="muted">以下为 Linux 下真实 Qt 桌面界面，示例文本用于演示学习和排版。</p>
+        <p class="muted">以下为 Linux 下真实 Qt 桌面界面，示例文本用于演示学习和排版。默认深色模式，原文与注音稿同步使用深底白字；可切换浅色并记住选择，打印与导出始终保持白底。</p>
         <figure>
           <a href="assets/kana.png"><img src="assets/kana.png" alt="假名学习页，71 个假名分栏同屏展示，底部提供选中假名的发音信息" width="2720" height="1800" loading="lazy"></a>
           <figcaption>假名学习：全部假名同屏可见，支持筛选和本地真人发音。</figcaption>
         </figure>
         <figure>
           <a href="assets/annotation.png"><img src="assets/annotation.png" alt="歌词注音页，左侧原文、右侧 A4 注音稿，假名与两种罗马音层居中对应，操作按钮位于底部" width="2720" height="1800" loading="lazy"></a>
-          <figcaption>歌词注音：A4 纸张预览，假名与罗马音层可叠加，预览、复制、导出集中在底部。</figcaption>
+          <figcaption>歌词注音：A4 纸张预览，假名与罗马音层可叠加，预览、复制、打印与导出集中在底部。</figcaption>
         </figure>
       </section>
       <section id="install" class="install">
@@ -53,15 +53,16 @@
           <li>macOS：打开 DMG，将「唱日语」拖入 Applications；Apple Silicon 需通过 Rosetta 2 运行 Intel 版。</li>
           <li>Ubuntu / Debian：在下载目录执行以下命令，自动安装系统依赖。</li>
         </ol>
-        <pre><code>sudo apt install ./sing-japanese-0.3.1-Linux.deb
+        <pre><code>sudo apt install ./sing-japanese-0.4.0-Linux.deb
 sing-japanese</code></pre>
-        <p>给文本注音后，勾选需要的罗马音层，再预览或导出。快捷键：<kbd>Ctrl</kbd> + <kbd>Enter</kbd> 注音，<kbd>Ctrl</kbd> + <kbd>S</kbd> 导出 PDF。</p>
+        <p>给文本注音后，勾选需要的罗马音层，再预览、打印或导出。快捷键：<kbd>Ctrl</kbd> + <kbd>Enter</kbd> 注音，<kbd>Ctrl</kbd> + <kbd>S</kbd> 导出 PDF，<kbd>Ctrl</kbd> + <kbd>P</kbd> 打印（macOS 为 <kbd>⌘</kbd> + <kbd>P</kbd>）。</p>
         <aside>
           <h3>使用前请注意</h3>
           <ul>
             <li>Windows 包未签名；macOS 包未进行 Developer ID 签名或公证。请核对 Release 的 SHA-256 校验文件，确认来源后再按系统提示打开。不要全局关闭系统安全检查。</li>
             <li>DOCX 与复制到 Word 使用高清图片排版，以保持预览效果；其中的文字不能单独编辑。粘贴时请选择“保留源格式”。</li>
             <li>文档预览交给系统关联应用打开，需安装 Word、WPS、LibreOffice 或 PDF 阅读器。</li>
+            <li>打印直接调用系统打印对话框，需要已配置的打印机；取消不会发送打印任务。</li>
             <li>每次最多处理 20,000 个 Unicode 字符。词典读音不一定适用于人名、歧义用法或歌词中的特殊唱法。</li>
             <li>无法唯一拆分的连续汉字词保留整词注音，不猜测逐字读音。未知汉字不猜读音。</li>
           </ul>

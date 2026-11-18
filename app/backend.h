@@ -24,6 +24,7 @@ class Backend final : public QObject
     Q_PROPERTY(QString status READ status NOTIFY lyricsChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
     Q_PROPERTY(bool playing READ playing NOTIFY playingChanged)
+    Q_PROPERTY(bool darkMode READ darkMode WRITE setDarkMode NOTIFY darkModeChanged)
     Q_PROPERTY(bool romaji READ romaji WRITE setRomaji NOTIFY annotationOptionsChanged)
     Q_PROPERTY(bool fullRomaji READ fullRomaji WRITE setFullRomaji NOTIFY annotationOptionsChanged)
     Q_PROPERTY(qreal previewWidth READ previewWidth WRITE setPreviewWidth NOTIFY previewWidthChanged)
@@ -43,6 +44,8 @@ public:
     QString status() const { return status_; }
     QString error() const { return error_; }
     bool playing() const { return player_.state() == QMediaPlayer::PlayingState; }
+    bool darkMode() const { return darkMode_; }
+    void setDarkMode(bool value);
     bool romaji() const { return annotationOptions_.romaji; }
     bool fullRomaji() const { return annotationOptions_.fullRomaji; }
     qreal previewWidth() const { return previewWidth_; }
@@ -66,6 +69,7 @@ public:
     Q_INVOKABLE bool previewPdf();
     Q_INVOKABLE bool previewDocx();
     Q_INVOKABLE bool copyForWord();
+    Q_INVOKABLE void printDocument();
     Q_INVOKABLE void clearError();
 
 signals:
@@ -74,6 +78,7 @@ signals:
     void resultChanged();
     void errorChanged();
     void playingChanged();
+    void darkModeChanged();
     void annotationOptionsChanged();
     void previewWidthChanged();
 
@@ -83,6 +88,7 @@ private:
     bool previewDocument(bool docx);
     void chooseDocument(bool docx);
     bool katakana_ = false;
+    bool darkMode_ = true;
     int groupIndex_ = 0;
     int rowIndex_ = 0;
     QString selectedId_ = QStringLiteral("a");

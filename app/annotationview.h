@@ -6,8 +6,11 @@
 #include <QVariantList>
 #include <QImage>
 #include <QPointer>
+#include <QPageLayout>
+#include <QColor>
 
 class QPainter;
+class QPrinter;
 
 struct AnnotationOptions {
     bool romaji = false;
@@ -27,6 +30,7 @@ struct AnnotationPlacement {
 using AnnotationLine = QVector<AnnotationPlacement>;
 
 QSize annotationPaperSize();
+QPageLayout annotationPageLayout();
 QRect annotationPrintableRect();
 qreal annotationContentPadding();
 QVector<AnnotationLine> layoutAnnotation(const QVector<Segment> &segments, qreal width,
@@ -39,9 +43,11 @@ int annotationLinesPerPage(qreal width, AnnotationOptions options = {});
 QImage renderAnnotationPage(const QVector<AnnotationLine> &lines, int firstLine, int lineCount,
                             qreal width, AnnotationOptions options = {});
 void drawAnnotationLines(QPainter &painter, const QVector<AnnotationLine> &lines,
-                         int firstLine, int lineCount, AnnotationOptions options = {});
+                         int firstLine, int lineCount, AnnotationOptions options = {}, bool darkMode = false);
 bool exportAnnotatedPdf(const QString &path, const QVector<Segment> &segments, QString *error,
                         AnnotationOptions options = {}, qreal width = 0);
+bool printAnnotatedDocument(QPrinter &printer, const QVector<Segment> &segments, QString *error,
+                            AnnotationOptions options = {}, qreal width = 0);
 
 class AnnotationView : public QQuickPaintedItem
 {
@@ -50,6 +56,9 @@ class AnnotationView : public QQuickPaintedItem
     Q_PROPERTY(bool romaji READ romaji WRITE setRomaji NOTIFY optionsChanged)
     Q_PROPERTY(bool fullRomaji READ fullRomaji WRITE setFullRomaji NOTIFY optionsChanged)
     Q_PROPERTY(qreal fontScale READ fontScale WRITE setFontScale NOTIFY optionsChanged)
+    Q_PROPERTY(bool darkMode READ darkMode WRITE setDarkMode NOTIFY appearanceChanged)
+    Q_PROPERTY(QColor paperColor READ paperColor NOTIFY appearanceChanged)
+    Q_PROPERTY(QColor textColor READ textColor NOTIFY appearanceChanged)
     Q_PROPERTY(qreal paperWidth READ paperWidth CONSTANT)
     Q_PROPERTY(qreal paperHeight READ paperHeight CONSTANT)
     Q_PROPERTY(qreal printableWidth READ printableWidth CONSTANT)
@@ -64,6 +73,9 @@ public:
     bool romaji() const { return options_.romaji; }
     bool fullRomaji() const { return options_.fullRomaji; }
     qreal fontScale() const { return options_.fontScale; }
+    bool darkMode() const { return darkMode_; }
+    QColor paperColor() const;
+    QColor textColor() const;
     qreal paperWidth() const { return annotationPaperSize().width(); }
     qreal paperHeight() const { return annotationPaperSize().height(); }
     qreal printableWidth() const { return annotationPrintableRect().width(); }
@@ -74,11 +86,13 @@ public:
     void setRomaji(bool value);
     void setFullRomaji(bool value);
     void setFontScale(qreal value);
+    void setDarkMode(bool value);
     void paint(QPainter *painter) override;
     void paintPage(QPainter *painter, int index) const;
 signals:
     void segmentsChanged();
     void optionsChanged();
+    void appearanceChanged();
     void pageCountChanged();
     void layoutChanged();
 
@@ -87,6 +101,7 @@ private:
     QVariantList values_;
     QVector<Segment> segments_;
     AnnotationOptions options_;
+    bool darkMode_ = false;
     QVector<AnnotationLine> lines_;
     int pageCount_ = 1;
 };

@@ -12,6 +12,7 @@
 #include <QFontMetricsF>
 #include <QPainter>
 #include <QProcess>
+#include <QPrinter>
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -21,6 +22,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 
 namespace {
 void require(bool condition, const char *message)
@@ -42,6 +44,15 @@ QByteArray archiveEntry(unzFile archive, const QByteArray &name)
         result.append(buffer, count);
     require(count == 0 && unzCloseCurrentFile(archive) == UNZ_OK, "DOCX part must pass its CRC check");
     return result;
+}
+
+int pdfPageCount(const QString &path)
+{
+    QFile file(path);
+    require(file.open(QIODevice::ReadOnly), "printed PDF must be readable");
+    const QByteArray data = file.readAll();
+    require(data.startsWith("%PDF-"), "printer output must be a PDF document");
+    return QString::fromLatin1(data.constData(), data.size()).count(QRegularExpression("/Type\\s*/Page\\b"));
 }
 
 bool hasInk(const QImage &image, const QColor &color)
@@ -163,13 +174,50 @@ void checkOptionsAndPixels()
         view.setFullRomaji(options.fullRomaji);
         view.setFontScale(options.fontScale);
         view.setHeight(view.implicitHeight());
-        QImage preview(rendered.size(), QImage::Format_RGB32);
-        preview.setDevicePixelRatio(3);
-        preview.fill(Qt::white);
-        QPainter painter(&preview);
-        view.paint(&painter);
-        painter.end();
+        auto paintPreview = [&] {
+            QImage image(rendered.size(), QImage::Format_RGB32);
+            image.setDevicePixelRatio(3);
+            image.fill(view.paperColor());
+            QPainter painter(&image);
+            view.paint(&painter);
+            painter.end();
+            return image;
+        };
+        const QImage preview = paintPreview();
         require(preview == rendered, "document page must be pixel-identical to the annotation preview");
+        const qreal height = view.implicitHeight();
+        const int pageCount = view.pageCount();
+        view.setDarkMode(true);
+        const QImage dark = paintPreview();
+        require(dark.pixelColor(0, 0) == QColor("#1b2420") && hasInk(dark, QColor(Qt::white))
+                    && view.textColor() == QColor(Qt::white),
+                "dark annotation paper must have a dark background and white glyphs");
+        for (int y = 0; y < preview.height(); ++y) {
+            for (int x = 0; x < preview.width(); ++x) {
+                const QColor color = preview.pixelColor(x, y);
+                if (color == QColor(35, 38, 42) || color == QColor(74, 79, 87)
+                    || color == QColor(45, 97, 82) || color == QColor(49, 91, 126)
+                    || color == QColor(140, 140, 140))
+                    require(dark.pixelColor(x, y) == QColor(Qt::white),
+                            "every opaque body, kana, romaji, and unknown-marker pixel must become white in place");
+            }
+        }
+        const QRect lightInk = inkBounds(preview, QColor(35, 38, 42))
+            .united(inkBounds(preview, QColor(74, 79, 87)))
+            .united(inkBounds(preview, QColor(45, 97, 82)))
+            .united(inkBounds(preview, QColor(49, 91, 126)))
+            .united(inkBounds(preview, QColor(140, 140, 140)));
+        const QRect darkInk = inkBounds(dark, QColor(Qt::white));
+        require(view.implicitHeight() == height && view.pageCount() == pageCount
+                    && std::abs(lightInk.left() - darkInk.left()) <= 1
+                    && std::abs(lightInk.top() - darkInk.top()) <= 1
+                    && std::abs(lightInk.right() - darkInk.right()) <= 1
+                    && std::abs(lightInk.bottom() - darkInk.bottom()) <= 1,
+                "screen color changes must preserve glyph positions, line height, and page count");
+        require(renderAnnotationPage(lines, 0, lines.size(), 640, options) == rendered,
+                "dark screen appearance must not affect export image colors");
+        view.setDarkMode(false);
+        require(paintPreview() == preview, "light mode must restore every preview pixel");
     }
     require(annotationLineHeight({true, true}) - annotationLineHeight({true, false})
                 == annotationLineHeight({true, false}) - annotationLineHeight(),
@@ -300,6 +348,20 @@ void checkDocuments(const QString &directory)
         require(previewContent == decoded,
                 "each A4 preview page must match its exported DOCX/clipboard image pixel for pixel");
     }
+    document.setDarkMode(true);
+    QImage darkSheet(annotationPaperSize() * 3, QImage::Format_RGB32);
+    darkSheet.setDevicePixelRatio(3);
+    {
+        QPainter painter(&darkSheet);
+        paper.paint(&painter);
+    }
+    require(darkSheet.pixelColor(10, 10) == QColor("#1b2420") && hasInk(darkSheet, QColor(Qt::white)),
+            "paginated screen pages must use the document's dark appearance");
+    const auto darkExport = createAnnotationPages(segments, width, options, &error);
+    require(darkExport.size() == pages.size(), "dark appearance must not change exported page counts");
+    for (int page = 0; page < pages.size(); ++page)
+        require(darkExport.at(page).png == pages.at(page).png,
+                "DOCX and clipboard pages must remain white and pixel-identical while the preview is dark");
     const QString path = directory + "/annotated.docx";
     require(exportAnnotatedDocx(path, pages, &error), "multi-page DOCX must export");
     const QString unicodeDirectory = directory + QStringLiteral("/日语文稿");
@@ -343,8 +405,86 @@ void checkDocuments(const QString &directory)
     }
     require(exportAnnotatedPdf(directory + "/annotated.pdf", segments, &error, options, width),
             "layered PDF must export with the preview width");
+    QPrinter printer(QPrinter::HighResolution);
+    printer.setOutputFormat(QPrinter::PdfFormat);
+    printer.setPageLayout(annotationPageLayout());
+    printer.setResolution(96);
+    printer.setOutputFileName(directory + "/printed.pdf");
+    const bool printed = printAnnotatedDocument(printer, segments, &error, options, width);
+    if (!printed) std::cerr << "Print error: " << error.toStdString() << '\n';
+    require(printed, "system printer renderer must finish successfully");
+    const int printedPages = pdfPageCount(printer.outputFileName());
+    if (printedPages != pages.size())
+        std::cerr << "Printed pages: " << printedPages << ", preview pages: " << pages.size()
+                  << ", copies: " << printer.copyCount() << '\n';
+    require(printedPages == pages.size(),
+            "system printer renderer must preserve every A4 page");
+    printer.setResolution(300);
+    printer.setOutputFileName(directory + "/printed-300dpi.pdf");
+    require(printAnnotatedDocument(printer, segments, &error, options, width)
+                && pdfPageCount(printer.outputFileName()) == pages.size(),
+            "printer resolution must not change annotation pagination");
+    printer.setPrintRange(QPrinter::PageRange);
+    printer.setFromTo(2, 2);
+    printer.setOutputFileName(directory + "/printed-range.pdf");
+    require(printAnnotatedDocument(printer, segments, &error, options, width)
+                && pdfPageCount(printer.outputFileName()) == 1,
+            "printer page ranges must output only the requested pages");
+    printer.setFromTo(1, 2);
+    printer.setPageOrder(QPrinter::LastPageFirst);
+    printer.setCopyCount(2);
+    printer.setCollateCopies(true);
+    printer.setOutputFileName(directory + "/printed-copies.pdf");
+    require(printAnnotatedDocument(printer, segments, &error, options, width)
+                && pdfPageCount(printer.outputFileName()) == 4,
+            "printer renderer must honor reverse order and collated copies");
+    printer.setCollateCopies(false);
+    printer.setOutputFileName(directory + "/printed-uncollated.pdf");
+    require(printAnnotatedDocument(printer, segments, &error, options, width)
+                && pdfPageCount(printer.outputFileName()) == 4,
+            "printer renderer must also support uncollated copies");
+    printer.setFromTo(pages.size() + 1, pages.size() + 2);
+    error.clear();
+    require(!printAnnotatedDocument(printer, segments, &error, options, width) && !error.isEmpty(),
+            "invalid printer page ranges must fail explicitly");
+    error.clear();
+    require(!printAnnotatedDocument(printer, {}, &error) && !error.isEmpty(),
+            "empty annotations must never create a print job");
+    error.clear();
+    require(!printAnnotatedDocument(printer, segments, &error, options,
+                                    std::numeric_limits<qreal>::infinity()) && !error.isEmpty(),
+            "invalid print geometry must fail explicitly");
+    printer.setPrintRange(QPrinter::AllPages);
+    printer.setOutputFileName(directory + "/missing/print.pdf");
+    error.clear();
+    require(!printAnnotatedDocument(printer, segments, &error, options, width) && !error.isEmpty(),
+            "printer output failures must be reported instead of appearing successful");
     const QString pdftoppm = QStandardPaths::findExecutable("pdftoppm");
     if (!pdftoppm.isEmpty()) {
+        for (const QString &name : {QStringLiteral("printed"), QStringLiteral("printed-300dpi"),
+                                    QStringLiteral("printed-range"), QStringLiteral("printed-copies"),
+                                    QStringLiteral("printed-uncollated")}) {
+            QProcess printRender;
+            const QString outputPage = name == "printed-copies" || name == "printed-uncollated" ? "2" : "1";
+            printRender.start(pdftoppm, {"-r", "288", "-f", outputPage, "-singlefile", "-png",
+                                         directory + "/" + name + ".pdf", directory + "/" + name});
+            require(printRender.waitForFinished() && printRender.exitCode() == 0,
+                    "printed document must render for comparison with the A4 preview");
+            const QImage printed = QImage(directory + "/" + name + ".png").convertToFormat(QImage::Format_RGB32);
+            const int expectedPage = name == "printed-range" || name == "printed-uncollated" ? 1 : 0;
+            const QImage expected = QImage::fromData(pages.at(expectedPage).png).convertToFormat(QImage::Format_RGB32);
+            for (const QColor &color : {QColor(35, 38, 42), QColor(74, 79, 87),
+                                        QColor(45, 97, 82), QColor(49, 91, 126)}) {
+                const QRect actual = inkBounds(printed, color);
+                const QRect preview = inkBounds(expected, color).translated(annotationPrintableRect().topLeft() * 3);
+                require(!actual.isEmpty() && !preview.isEmpty()
+                            && std::abs(actual.left() - preview.left()) <= 5
+                            && std::abs(actual.top() - preview.top()) <= 5
+                            && std::abs(actual.right() - preview.right()) <= 5
+                            && std::abs(actual.bottom() - preview.bottom()) <= 5,
+                        "physical print size, page selection, and all annotation layers must match the A4 preview");
+            }
+        }
         QProcess render;
         render.start(pdftoppm, {"-r", "288", "-f", "1", "-singlefile", "-png",
                                 directory + "/annotated.pdf", directory + "/pdf-page"});
@@ -410,6 +550,6 @@ int main(int argc, char **argv)
     checkOptionsAndPixels();
     checkRomajiSpacing();
     checkDocuments(directory.path());
-    std::cout << "Romaji, independent layers, pixel identity, multi-page DOCX/PDF and clipboard checks passed.\n";
+    std::cout << "Romaji, pixel identity, DOCX/PDF/clipboard and printer DPI, page range and copy checks passed.\n";
     return 0;
 }

@@ -18,6 +18,8 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QProcess>
+#include <QPrintDialog>
+#include <QSettings>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQmlError>
@@ -32,6 +34,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <utility>
 
 class PreviewHandler : public QObject
 {
@@ -56,6 +59,29 @@ void settle()
     QEventLoop loop;
     QTimer::singleShot(100, &loop, &QEventLoop::quit);
     loop.exec();
+}
+
+void checkThemeContrast(QObject *theme)
+{
+    auto luminance = [](const QColor &color) {
+        auto linear = [](qreal value) {
+            return value <= 0.04045 ? value / 12.92 : std::pow((value + 0.055) / 1.055, 2.4);
+        };
+        return 0.2126 * linear(color.redF()) + 0.7152 * linear(color.greenF())
+               + 0.0722 * linear(color.blueF());
+    };
+    const std::pair<const char *, const char *> pairs[] = {
+        {"text", "surface"}, {"text", "window"}, {"secondary", "window"},
+        {"secondary", "cellSelected"}, {"secondary", "details"}, {"selectedText", "cellSelected"},
+        {"primaryText", "primary"}, {"primaryText", "primaryHover"},
+        {"primaryText", "primaryPressed"}, {"errorText", "errorSurface"}
+    };
+    for (const auto &roles : pairs) {
+        const qreal foreground = luminance(theme->property(roles.first).value<QColor>());
+        const qreal background = luminance(theme->property(roles.second).value<QColor>());
+        require((std::max(foreground, background) + 0.05) / (std::min(foreground, background) + 0.05) >= 4.5,
+                "active theme text must meet the WCAG AA contrast ratio of 4.5:1");
+    }
 }
 
 QQuickItem *visualControl(QQuickItem *root, const QString &name)
@@ -305,6 +331,9 @@ int main(int argc, char **argv)
     application.setFont(QFont("Noto Sans CJK JP", 10));
     QTemporaryDir directory;
     require(directory.isValid(), "temporary directory must be created");
+    QCoreApplication::setOrganizationName("Sing Japanese Tests");
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, directory.path());
     qputenv("XDG_CACHE_HOME", directory.path().toUtf8());
     const QString input = QStringLiteral("  今日、学校へ行く。\r\n\nあいうえお  ");
     const QVector<Segment> segments = annotate(input);
@@ -367,8 +396,23 @@ int main(int argc, char **argv)
 
     {
         Backend backend;
+        require(backend.darkMode(), "first launch must default to dark mode");
+        int themeChanges = 0;
+        QObject::connect(&backend, &Backend::darkModeChanged, [&] { ++themeChanges; });
+        backend.setDarkMode(false);
+        backend.setDarkMode(false);
+        require(!backend.darkMode() && themeChanges == 1, "theme changes must notify exactly once");
+        {
+            Backend restored;
+            require(!restored.darkMode(), "an explicitly chosen light theme must persist");
+        }
+        backend.setDarkMode(true);
+        require(Backend().darkMode() && themeChanges == 2, "dark mode must also persist");
+        backend.setDarkMode(false);
         require(!backend.previewPdf() && !backend.previewDocx() && !backend.copyForWord(),
                 "document actions must reject empty annotation results");
+        backend.printDocument();
+        require(!backend.error().isEmpty(), "empty annotation must not open the print dialog");
         require(kanaCount(backend) == 71, "kana model must contain 71 entries");
         require(QDir(":/audio").entryList({"*.ogg", "*.wav"}).size() == 71, "all recordings must be bundled");
         backend.setGroupIndex(2);
@@ -419,12 +463,20 @@ int main(int argc, char **argv)
         require(!backend.saveDocx(directory.filePath("stale.docx"))
                     && !backend.previewDocx() && !backend.previewPdf(),
                 "all document actions must reject stale annotation");
+        backend.printDocument();
+        require(!backend.error().isEmpty(), "stale annotation must not open the print dialog");
         clipboard->setMimeData(originalClipboard);
     }
 
+    {
+        QSettings settings;
+        settings.remove(QStringLiteral("appearance/darkMode"));
+        settings.sync();
+    }
     Backend backend;
     qmlRegisterType<AnnotationView>("SingJapanese", 1, 0, "AnnotationView");
     qmlRegisterType<AnnotationPageView>("SingJapanese", 1, 0, "AnnotationPageView");
+    qmlRegisterSingletonType(QUrl("qrc:/qml/Theme.qml"), "SingJapanese", 1, 0, "Theme");
     QQmlApplicationEngine engine;
     QList<QQmlError> warnings;
     QObject::connect(&engine, &QQmlEngine::warnings, [&warnings](const QList<QQmlError> &items) {
@@ -435,6 +487,19 @@ int main(int argc, char **argv)
     require(!engine.rootObjects().isEmpty(), "QML window must load");
     auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
     require(window, "QML root must be a window");
+    auto *initialPreview = qobject_cast<AnnotationView *>(control(window, "annotationPreview"));
+    require(backend.darkMode() && window->color() == QColor("#151b19")
+                && initialPreview && initialPreview->darkMode()
+                && control(window, "originalPaper")->property("color").value<QColor>() == QColor("#1b2420")
+                && control(window, "lyricsInput")->property("color").value<QColor>() == QColor(Qt::white),
+            "a fresh launch must use dark mode for the application, original text, and annotation paper");
+    auto *theme = engine.singletonInstance<QObject *>(qmlTypeId("SingJapanese", 1, 0, "Theme"));
+    require(theme, "theme singleton must be registered");
+    for (bool dark : {false, true}) {
+        backend.setDarkMode(dark);
+        checkThemeContrast(theme);
+    }
+    backend.setDarkMode(false);
     require(window->title() == QStringLiteral("唱日语"), "window must use the current product name");
     require(qFuzzyCompare(window->devicePixelRatio(), window->screen()->devicePixelRatio()),
             "window must respect the screen DPI including native and application scale factors");
@@ -485,6 +550,7 @@ int main(int argc, char **argv)
 
     const QString screenshots = qEnvironmentVariable("SING_JAPANESE_SCREENSHOTS");
     qreal fixedLayoutHeight = 0;
+    bool checkedPrinting = false;
     for (const QSize size : {QSize(1920, 1080), QSize(1360, 900), QSize(1120, 800), minimumSize}) {
         window->resize(size);
         window->setProperty("page", 0);
@@ -526,6 +592,31 @@ int main(int argc, char **argv)
         require(detailPos.y() >= chartPos.y() + chart->height(),
                 "pronunciation details must sit below the full-width kana overview");
         checkReadableText(window->contentItem());
+        pointerClick(window, "themeToggleButton");
+        require(backend.darkMode() && window->color() == QColor("#151b19"),
+                "theme switch must immediately darken the entire window");
+        auto *romajiLabel = control(window, "romajiToggle")->property("contentItem").value<QQuickItem *>();
+        require(romajiLabel && romajiLabel->property("color").value<QColor>() == QColor("#e4eee6"),
+                "checkbox labels must remain readable after switching to dark mode");
+        checkKanaOverview(window, backend);
+        checkReadableText(window->contentItem());
+        auto *popup = control(window, "groupFilter")->property("popup").value<QObject *>();
+        require(popup && QMetaObject::invokeMethod(popup, "open"), "filter menu must open in dark mode");
+        settle();
+        auto *popupBackground = popup->property("background").value<QQuickItem *>();
+        require(popup->property("visible").toBool() && popupBackground
+                    && popupBackground->property("color").value<QColor>() == QColor("#1f2a25"),
+                "popup menus must use the dark surface instead of a white background");
+        QMetaObject::invokeMethod(popup, "close");
+        if (!screenshots.isEmpty()) {
+            settle();
+            require(QDir().mkpath(screenshots), "screenshot directory must be available");
+            require(window->grabWindow().save(screenshots + "/kana-dark-" + QString::number(size.width()) + ".png"),
+                    "dark kana screenshot must render");
+        }
+        pointerClick(window, "themeToggleButton");
+        require(!backend.darkMode() && window->color() == QColor("#f4f3ec"),
+                "theme switch must restore light mode without changing the kana overview");
         if (!screenshots.isEmpty()) {
             require(QDir().mkpath(screenshots), "screenshot directory must be available");
             require(window->grabWindow().save(screenshots + "/kana-" + QString::number(size.width()) + ".png"),
@@ -544,7 +635,7 @@ int main(int argc, char **argv)
                     && panels->height() >= workspace->height() - 48 - 110 * window->property("uiScale").toReal()
                     && actions->y() - (panels->y() + panels->height()) <= 12,
                 "paper panels must fill the remaining height with actions pinned to the bottom");
-        for (const char *name : {"paperZoomButton", "annotateButton", "previewDocxButton",
+        for (const char *name : {"paperZoomButton", "annotateButton", "previewDocxButton", "printButton",
                                  "previewPdfButton", "copyWordButton", "exportDocxButton", "exportButton"}) {
             auto *button = qobject_cast<QQuickItem *>(control(window, name));
             require(button && button->height() <= 46 * window->property("uiScale").toReal(),
@@ -612,6 +703,73 @@ int main(int argc, char **argv)
         pointerClick(window, "fullRomajiOption");
         require(backend.romaji() && backend.fullRomaji() && preview->fullRomaji(),
                 "second checkbox must add a layer without removing the first");
+        auto paintedPaper = [&] {
+            QImage sheet(annotationPaperSize(), QImage::Format_RGB32);
+            sheet.fill(Qt::white);
+            QPainter painter(&sheet);
+            preview->paintPage(&painter, 0);
+            painter.end();
+            return sheet;
+        };
+        const QImage lightPaper = paintedPaper();
+        const int lightPageCount = preview->pageCount();
+        pointerClick(window, "themeToggleButton");
+        const QImage darkPaper = paintedPaper();
+        require(backend.darkMode() && backend.canExport()
+                    && preview->darkMode() && preview->pageCount() == lightPageCount
+                    && originalPaper->property("color").value<QColor>() == QColor("#1b2420")
+                    && editor->property("color").value<QColor>() == QColor(Qt::white)
+                    && darkPaper.pixelColor(8, 8) == QColor("#1b2420")
+                    && !inkBounds(darkPaper, darkPaper.rect(), QColor(Qt::white)).isEmpty()
+                    && darkPaper != lightPaper,
+                "dark mode must show both papers with dark backgrounds and white text without changing pagination");
+        for (const char *name : {"romajiOption", "fullRomajiOption"}) {
+            auto *label = control(window, name)->property("contentItem").value<QQuickItem *>();
+            require(label && label->property("color").value<QColor>() == QColor("#e4eee6"),
+                    "annotation option labels must use the live dark palette");
+        }
+        if (!screenshots.isEmpty()) {
+            settle();
+            require(window->grabWindow().save(screenshots + "/lyrics-dark-" + QString::number(size.width()) + ".png"),
+                    "dark lyrics screenshot must render");
+        }
+        pointerClick(window, "themeToggleButton");
+        require(!preview->darkMode() && paintedPaper() == lightPaper
+                    && originalPaper->property("color").value<QColor>() == QColor(Qt::white),
+                "returning to light mode must restore the exact original paper rendering");
+        if (!checkedPrinting) {
+            auto cancelPrint = [&](auto trigger) {
+                bool dialogSeen = false;
+                const QString status = backend.status();
+                QTimer::singleShot(0, [&] {
+                    for (auto *widget : QApplication::topLevelWidgets()) {
+                        if (auto *dialog = qobject_cast<QPrintDialog *>(widget)) {
+                            dialogSeen = true;
+                            dialog->reject();
+                        }
+                    }
+                });
+                trigger();
+                if (!dialogSeen || !backend.error().isEmpty() || backend.status() != status)
+                    std::cerr << "Print dialog seen: " << dialogSeen << ", error: "
+                              << backend.error().toStdString() << ", status changed: "
+                              << (backend.status() != status) << '\n';
+                require(dialogSeen && backend.error().isEmpty() && backend.status() == status
+                            && backend.canExport(),
+                        "system print dialog must open and cancellation must not print or invalidate results");
+            };
+            cancelPrint([&] { pointerClick(window, "printButton"); });
+            window->requestActivate();
+            settle();
+            cancelPrint([&] {
+                QKeyEvent press(QEvent::KeyPress, Qt::Key_P, Qt::ControlModifier);
+                QKeyEvent release(QEvent::KeyRelease, Qt::Key_P, Qt::ControlModifier);
+                QCoreApplication::sendEvent(window, &press);
+                QCoreApplication::sendEvent(window, &release);
+                settle();
+            });
+            checkedPrinting = true;
+        }
         const int pageCount = preview->pageCount();
         pointerClick(window, "paperZoomButton");
         require(qFuzzyCompare(originalPaper->scale(), qreal(1))
@@ -640,7 +798,7 @@ int main(int argc, char **argv)
                     >= annotationLineHeight({true, true, backend.previewFontScale()}) + 24,
                 "small windows must show at least one complete line with all annotation layers");
         for (const char *name : {"previewDocxButton", "previewPdfButton", "copyWordButton",
-                                 "exportDocxButton", "exportButton"}) {
+                                 "printButton", "exportDocxButton", "exportButton"}) {
             auto *button = qobject_cast<QQuickItem *>(control(window, name));
             const QPointF position = button->mapToScene(QPointF(0, 0));
             require(button->isEnabled() && position.x() >= 0 && position.y() >= 0
@@ -658,7 +816,7 @@ int main(int argc, char **argv)
         require(!backend.romaji() && !backend.fullRomaji(), "unchecking both must restore kana-only rendering");
         editor->setProperty("text", QStringLiteral("変更"));
         require(!control(window, "exportButton")->property("enabled").toBool(), "edits must disable stale export");
-        for (const char *name : {"previewDocxButton", "previewPdfButton", "copyWordButton", "exportDocxButton"})
+        for (const char *name : {"previewDocxButton", "previewPdfButton", "copyWordButton", "printButton", "exportDocxButton"})
             require(!control(window, name)->property("enabled").toBool(), "edits must disable stale document actions");
         editor->setProperty("text", longInput);
         editorItem->forceActiveFocus();
@@ -720,7 +878,7 @@ int main(int argc, char **argv)
     require(countPaperViews(window->contentItem()) < 20,
             "A4 previews must instantiate only visible pages, not one image per document page");
     require(warnings.isEmpty(), "QML must not emit binding, layout, or runtime warnings");
-    std::cout << "QML UI, kana filtering, audio, annotation layers, document previews and PDF/DOCX/clipboard checks passed.\n";
+    std::cout << "QML UI, persistent themes, contrast, native printing, kana, audio and document checks passed.\n";
     return 0;
 }
 

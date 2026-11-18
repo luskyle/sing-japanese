@@ -7,6 +7,7 @@
 #include <QPageLayout>
 #include <QPageSize>
 #include <QPdfWriter>
+#include <QPrinter>
 #include <QSaveFile>
 
 #include <algorithm>
@@ -19,10 +20,9 @@ constexpr qreal kRomajiGap = 12.0;
 constexpr qreal kLineGap = 12.0;
 constexpr int kPrintResolution = 96;
 
-QPageLayout paperLayout()
+QColor annotationTextColor(bool darkMode)
 {
-    return QPageLayout(QPageSize(QPageSize::A4), QPageLayout::Portrait,
-                       QMarginsF(18, 18, 18, 18), QPageLayout::Millimeter);
+    return darkMode ? QColor(Qt::white) : QColor(35, 38, 42);
 }
 
 QVector<QString> characters(const QString &text)
@@ -48,7 +48,7 @@ QFont readingFont(AnnotationOptions options)
 }
 
 void drawLine(QPainter &painter, const AnnotationLine &line, qreal top,
-              const QFont &base, const QFont &reading, AnnotationOptions options)
+              const QFont &base, const QFont &reading, AnnotationOptions options, bool darkMode)
 {
     const QFontMetricsF baseMetrics(base);
     const QFontMetricsF readingMetrics(reading);
@@ -71,10 +71,10 @@ void drawLine(QPainter &painter, const AnnotationLine &line, qreal top,
         const qreal width = readingMetrics.horizontalAdvance(text);
         drawCentered(text, placement, y + readingMetrics.ascent(), width);
         painter.setFont(base);
-        painter.setPen(QColor(35, 38, 42));
+        painter.setPen(annotationTextColor(darkMode));
     };
     painter.setFont(base);
-    painter.setPen(QColor(35, 38, 42));
+    painter.setPen(annotationTextColor(darkMode));
     for (const AnnotationPlacement &placement : line) {
         const QString &text = placement.segment.text;
         if (text.isEmpty() || text == QLatin1String("\n"))
@@ -82,17 +82,18 @@ void drawLine(QPainter &painter, const AnnotationLine &line, qreal top,
         const qreal baseWidth = baseMetrics.horizontalAdvance(text);
         drawCentered(text, placement, baseline, baseWidth);
         if (options.fullRomaji)
-            drawReading(placement.fullRomaji, placement, top, QColor(49, 91, 126));
+            drawReading(placement.fullRomaji, placement, top, darkMode ? QColor(Qt::white) : QColor(49, 91, 126));
         if (options.romaji)
             drawReading(placement.romaji, placement, top + int(options.fullRomaji) * rowHeight,
-                        QColor(45, 97, 82));
+                        darkMode ? QColor(Qt::white) : QColor(45, 97, 82));
         if (!placement.segment.reading.isEmpty()) {
-            drawReading(placement.segment.reading, placement, kanaTop, QColor(74, 79, 87));
+            drawReading(placement.segment.reading, placement, kanaTop,
+                        darkMode ? QColor(Qt::white) : QColor(74, 79, 87));
         } else if (placement.segment.unknown) {
             const qreal y = baseline + 2;
-            painter.setPen(QPen(QColor(140, 140, 140), 1, Qt::DotLine));
+            painter.setPen(QPen(darkMode ? QColor(Qt::white) : QColor(140, 140, 140), 1, Qt::DotLine));
             painter.drawLine(QPointF(placement.x, y), QPointF(placement.x + placement.width, y));
-            painter.setPen(QColor(35, 38, 42));
+            painter.setPen(annotationTextColor(darkMode));
         }
     }
 }
@@ -100,12 +101,18 @@ void drawLine(QPainter &painter, const AnnotationLine &line, qreal top,
 
 QSize annotationPaperSize()
 {
-    return paperLayout().fullRectPixels(kPrintResolution).size();
+    return annotationPageLayout().fullRectPixels(kPrintResolution).size();
 }
 
 QRect annotationPrintableRect()
 {
-    return paperLayout().paintRectPixels(kPrintResolution);
+    return annotationPageLayout().paintRectPixels(kPrintResolution);
+}
+
+QPageLayout annotationPageLayout()
+{
+    return QPageLayout(QPageSize(QPageSize::A4), QPageLayout::Portrait,
+                       QMarginsF(18, 18, 18, 18), QPageLayout::Millimeter);
 }
 
 qreal annotationContentPadding()
@@ -229,19 +236,37 @@ QImage renderAnnotationPage(const QVector<AnnotationLine> &lines, int firstLine,
 }
 
 void drawAnnotationLines(QPainter &painter, const QVector<AnnotationLine> &lines,
-                         int firstLine, int lineCount, AnnotationOptions options)
+                         int firstLine, int lineCount, AnnotationOptions options, bool darkMode)
 {
     const QFont base = baseFont(options);
     const QFont ruby = readingFont(options);
     for (int index = 0; index < lineCount && firstLine + index < lines.size(); ++index)
         drawLine(painter, lines.at(firstLine + index), index * annotationLineHeight(options),
-                 base, ruby, options);
+                 base, ruby, options, darkMode);
 }
 
 AnnotationView::AnnotationView(QQuickItem *parent) : QQuickPaintedItem(parent)
 {
     connect(this, &QQuickItem::widthChanged, this, &AnnotationView::updateHeight);
     setAntialiasing(true);
+}
+
+QColor AnnotationView::paperColor() const
+{
+    return darkMode_ ? QColor(27, 36, 32) : QColor(Qt::white);
+}
+
+QColor AnnotationView::textColor() const
+{
+    return annotationTextColor(darkMode_);
+}
+
+void AnnotationView::setDarkMode(bool value)
+{
+    if (darkMode_ == value) return;
+    darkMode_ = value;
+    emit appearanceChanged();
+    update();
 }
 
 void AnnotationView::setSegments(const QVariantList &segments)
@@ -302,10 +327,10 @@ void AnnotationView::updateHeight()
 
 void AnnotationView::paint(QPainter *painter)
 {
-    painter->fillRect(boundingRect(), Qt::white);
+    painter->fillRect(boundingRect(), paperColor());
     painter->save();
     painter->translate(0, kPadding);
-    drawAnnotationLines(*painter, lines_, 0, lines_.size(), options_);
+    drawAnnotationLines(*painter, lines_, 0, lines_.size(), options_, darkMode_);
     painter->restore();
 }
 
@@ -313,8 +338,8 @@ void AnnotationView::paintPage(QPainter *painter, int index) const
 {
     const QSize paper = annotationPaperSize();
     const QRect printable = annotationPrintableRect();
-    painter->fillRect(QRect(QPoint(0, 0), paper), Qt::white);
-    painter->setPen(QColor(210, 218, 210));
+    painter->fillRect(QRect(QPoint(0, 0), paper), paperColor());
+    painter->setPen(darkMode_ ? QColor(67, 87, 74) : QColor(210, 218, 210));
     painter->drawRect(QRectF(0.5, 0.5, paper.width() - 1, paper.height() - 1));
     if (index < 0 || index >= pageCount_)
         return;
@@ -322,7 +347,7 @@ void AnnotationView::paintPage(QPainter *painter, int index) const
     painter->save();
     painter->setClipRect(printable);
     painter->translate(printable.left(), printable.top() + kPadding);
-    drawAnnotationLines(*painter, lines_, index * linesPerPage, linesPerPage, options_);
+    drawAnnotationLines(*painter, lines_, index * linesPerPage, linesPerPage, options_, darkMode_);
     painter->restore();
 }
 
@@ -339,6 +364,7 @@ void AnnotationPageView::setDocument(AnnotationView *document)
     document_ = document;
     if (document_) {
         connect(document_, &AnnotationView::layoutChanged, this, [this] { update(); });
+        connect(document_, &AnnotationView::appearanceChanged, this, [this] { update(); });
         connect(document_, &QObject::destroyed, this, [this] {
             emit documentChanged();
             update();
@@ -362,6 +388,42 @@ void AnnotationPageView::paint(QPainter *painter)
         document_->paintPage(painter, pageIndex_);
 }
 
+namespace {
+bool paintDocument(QPagedPaintDevice &device, const QVector<AnnotationLine> &lines,
+                   AnnotationOptions options, qreal width, const QVector<int> &pages, QString *error)
+{
+    QPainter painter(&device);
+    if (!painter.isActive()) {
+        if (error) *error = QStringLiteral("无法开始文档绘制。请检查输出设备与文件权限。");
+        return false;
+    }
+    const QRect page = device.pageLayout().paintRectPixels(device.logicalDpiX());
+    const qreal scale = std::min({device.logicalDpiX() / qreal(kPrintResolution),
+                                 page.width() / width,
+                                 page.height() / qreal(annotationPrintableRect().height())});
+    const int linesPerPage = annotationLinesPerPage(width, options);
+    for (int index = 0; index < pages.size(); ++index) {
+        if (index > 0 && !device.newPage()) {
+            if (error) *error = QStringLiteral("无法创建下一页。请检查打印机或输出文件。");
+            return false;
+        }
+        const int first = pages.at(index) * linesPerPage;
+        painter.save();
+        painter.setClipRect(QRect(0, 0, page.width(), page.height()));
+        painter.scale(scale, scale);
+        painter.translate(0, kPadding);
+        drawAnnotationLines(painter, lines, first,
+                            std::min(linesPerPage, lines.size() - first), options);
+        painter.restore();
+    }
+    if (!painter.end()) {
+        if (error) *error = QStringLiteral("文档输出失败。请检查打印机状态或磁盘空间。");
+        return false;
+    }
+    return true;
+}
+}
+
 bool exportAnnotatedPdf(const QString &path, const QVector<Segment> &segments, QString *error,
                         AnnotationOptions options, qreal width)
 {
@@ -372,35 +434,59 @@ bool exportAnnotatedPdf(const QString &path, const QVector<Segment> &segments, Q
     }
     QPdfWriter writer(&file);
     writer.setResolution(kPrintResolution);
-    writer.setPageLayout(paperLayout());
-    QPainter painter(&writer);
-    if (!painter.isActive()) {
-        if (error)
-            *error = QStringLiteral("无法创建 PDF 文件。");
+    writer.setPageLayout(annotationPageLayout());
+    if (width <= 0) width = annotationPrintableRect().width();
+    const auto lines = layoutAnnotation(segments, width, options);
+    const int perPage = annotationLinesPerPage(width, options);
+    QVector<int> pages;
+    for (int first = 0; first < lines.size(); first += perPage)
+        pages.append(first / perPage);
+    if (!paintDocument(writer, lines, options, width, pages, error))
+        return false;
+    if (!file.commit()) {
+        if (error) *error = QStringLiteral("PDF 写入失败：%1").arg(file.errorString());
         return false;
     }
+    return true;
+}
 
-    const QRect page = writer.pageLayout().paintRectPixels(writer.resolution());
-    if (width <= 0) width = page.width();
-    const qreal scale = std::min<qreal>(1, page.width() / width);
-    const auto lines = layoutAnnotation(segments, width, options);
-    const int linesPerPage = annotationLinesPerPage(width, options);
-    for (int first = 0; first < lines.size(); first += linesPerPage) {
-        if (first > 0 && !writer.newPage()) {
-            if (error)
-                *error = QStringLiteral("无法创建下一页。");
-            return false;
-        }
-        painter.save();
-        painter.setClipRect(QRect(0, 0, page.width(), page.height()));
-        painter.scale(scale, scale);
-        painter.translate(0, kPadding);
-        drawAnnotationLines(painter, lines, first,
-                            std::min(linesPerPage, lines.size() - first), options);
-        painter.restore();
+bool printAnnotatedDocument(QPrinter &printer, const QVector<Segment> &segments, QString *error,
+                            AnnotationOptions options, qreal width)
+{
+    if (width == 0) width = annotationPrintableRect().width();
+    if (segments.isEmpty() || !std::isfinite(width) || width <= 24) {
+        if (error) *error = QStringLiteral("没有可打印的注音稿，或排版宽度无效。");
+        return false;
     }
-    if (!painter.end() || !file.commit()) {
-        if (error) *error = QStringLiteral("PDF 写入失败：%1").arg(file.errorString());
+    const auto lines = layoutAnnotation(segments, width, options);
+    const int perPage = annotationLinesPerPage(width, options);
+    const int pageCount = (lines.size() + perPage - 1) / perPage;
+    const int first = printer.printRange() == QPrinter::PageRange ? printer.fromPage() : 1;
+    const int last = printer.printRange() == QPrinter::PageRange ? printer.toPage() : pageCount;
+    if (first < 1 || last < first || first > pageCount
+        || (printer.printRange() != QPrinter::AllPages && printer.printRange() != QPrinter::PageRange)) {
+        if (error) *error = QStringLiteral("无效的打印页码范围。");
+        return false;
+    }
+    QVector<int> selected;
+    for (int page = first - 1; page < std::min(last, pageCount); ++page)
+        selected.append(page);
+    if (printer.pageOrder() == QPrinter::LastPageFirst)
+        std::reverse(selected.begin(), selected.end());
+    const int copies = printer.supportsMultipleCopies() ? 1 : std::max(1, printer.copyCount());
+    QVector<int> pages;
+    if (printer.collateCopies()) {
+        for (int copy = 0; copy < copies; ++copy)
+            pages += selected;
+    } else {
+        for (int page : selected)
+            for (int copy = 0; copy < copies; ++copy)
+                pages.append(page);
+    }
+    if (!paintDocument(printer, lines, options, width, pages, error))
+        return false;
+    if (printer.printerState() == QPrinter::Error || printer.printerState() == QPrinter::Aborted) {
+        if (error) *error = QStringLiteral("打印任务未完成。请检查打印机状态后重试。");
         return false;
     }
     return true;

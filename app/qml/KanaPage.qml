@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import SingJapanese 1.0
 
 Item {
     id: page
@@ -28,12 +29,10 @@ Item {
                 text: "片假名"; selected: backend.katakana
                 onClicked: backend.katakana = true
             }
-            CheckBox {
+            OptionCheckBox {
                 objectName: "romajiToggle"
                 text: "罗马音"; checked: page.showRomaji
                 onToggled: page.showRomaji = checked
-                font.pixelSize: Math.round(16 * page.uiScale)
-                palette.highlight: "#2d6152"
             }
             ChoiceBox {
                 objectName: "groupFilter"
@@ -50,7 +49,7 @@ Item {
         Rectangle {
             Layout.fillWidth: true; Layout.fillHeight: true
             Layout.minimumHeight: 0
-            radius: 16; color: "#ffffff"; border.color: "#e1e6dc"
+            radius: 16; color: Theme.surface; border.color: Theme.border
             Item {
                 id: chart
                 objectName: "kanaChart"
@@ -89,7 +88,7 @@ Item {
                                         objectName: "vowel_" + block.blockIndex + "_" + modelData
                                         width: block.cellWidth
                                         horizontalAlignment: Text.AlignHCenter
-                                        text: modelData; color: "#65766a"
+                                        text: modelData; color: Theme.secondary
                                         font.pixelSize: Math.round(15 * page.uiScale)
                                     }
                                 }
@@ -104,7 +103,7 @@ Item {
                                     height: chart.rowHeight
                                     Text {
                                         width: block.labelWidth; height: parent.height
-                                        text: kanaRow.rowData.name; color: "#65766a"
+                                        text: kanaRow.rowData.name; color: Theme.secondary
                                         font.pixelSize: Math.round(14 * page.uiScale)
                                         verticalAlignment: Text.AlignVCenter
                                     }
@@ -124,8 +123,8 @@ Item {
                                                 onClicked: backend.selectKana(modelData.id)
                                                 background: Rectangle {
                                                     radius: 8
-                                                    color: kanaButton.isCurrent ? "#e5eee4" : kanaButton.hovered ? "#f0f4ed" : "#f8f9f5"
-                                                    border.color: kanaButton.activeFocus ? "#2d6152" : kanaButton.isCurrent ? "#91ae8c" : "#edf0e8"
+                                                    color: kanaButton.isCurrent ? Theme.cellSelected : kanaButton.hovered ? Theme.cellHover : Theme.cell
+                                                    border.color: kanaButton.activeFocus ? Theme.accent : kanaButton.isCurrent ? Theme.selectedBorder : Theme.divider
                                                     Behavior on color { ColorAnimation { duration: 120 } }
                                                 }
                                                 contentItem: Item {
@@ -136,7 +135,7 @@ Item {
                                                         font.pixelSize: Math.round(31 * page.uiScale)
                                                         minimumPixelSize: 18
                                                         fontSizeMode: Text.Fit
-                                                        color: kanaButton.isCurrent ? "#2d6152" : "#34453b"
+                                                        color: kanaButton.isCurrent ? Theme.selectedText : Theme.text
                                                         horizontalAlignment: Text.AlignHCenter
                                                         verticalAlignment: Text.AlignVCenter
                                                     }
@@ -144,7 +143,7 @@ Item {
                                                         id: roman
                                                         anchors.bottom: parent.bottom
                                                         width: parent.width; visible: page.showRomaji
-                                                        text: modelData.romaji || ""; color: "#65766a"
+                                                        text: modelData.romaji || ""; color: Theme.secondary
                                                         font.pixelSize: Math.round(14 * page.uiScale)
                                                         horizontalAlignment: Text.AlignHCenter
                                                     }
@@ -164,7 +163,7 @@ Item {
             Layout.fillWidth: true
             Layout.preferredHeight: Math.max(64 * page.uiScale, selectedCharacter.implicitHeight + 20,
                 replay.implicitHeight + 20, detailNote.implicitHeight + 20)
-            radius: 12; color: "#e9eee2"; border.color: "#dce4d3"
+            radius: 12; color: Theme.details; border.color: Theme.border
             RowLayout {
                 id: detailRow
                 anchors.fill: parent
@@ -173,17 +172,17 @@ Item {
                 Text {
                     id: selectedCharacter
                     text: backend.selected.character
-                    font.pixelSize: Math.round((page.height < 650 ? 32 : 40) * page.uiScale); color: "#2e5340"
+                    font.pixelSize: Math.round((page.height < 650 ? 32 : 40) * page.uiScale); color: Theme.selectedText
                 }
                 Text {
                     objectName: "selectedRomaji"
                     visible: page.showRomaji
-                    text: backend.selected.romaji; color: "#526e57"
+                    text: backend.selected.romaji; color: Theme.secondary
                     font.pixelSize: Math.round(20 * page.uiScale)
                 }
                 Text {
                     text: (backend.katakana ? "平假名  " : "片假名  ") + backend.selected.counterpart
-                    color: "#5e735f"; font.pixelSize: Math.round(16 * page.uiScale)
+                    color: Theme.secondary; font.pixelSize: Math.round(16 * page.uiScale)
                 }
                 ActionButton {
                     id: replay
@@ -197,7 +196,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     text: backend.selected.note
-                    wrapMode: Text.Wrap; color: "#51684f"
+                    wrapMode: Text.Wrap; color: Theme.secondary
                     font.pixelSize: Math.round(14 * page.uiScale)
                 }
             }

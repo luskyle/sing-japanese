@@ -28,6 +28,7 @@ int main(int argc, char *argv[])
 
     qmlRegisterType<AnnotationView>("SingJapanese", 1, 0, "AnnotationView");
     qmlRegisterType<AnnotationPageView>("SingJapanese", 1, 0, "AnnotationPageView");
+    qmlRegisterSingletonType(QUrl("qrc:/qml/Theme.qml"), "SingJapanese", 1, 0, "Theme");
     Backend backend;
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("backend", &backend);

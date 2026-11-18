@@ -26,6 +26,7 @@ Item {
         romaji: backend.romaji
         fullRomaji: backend.fullRomaji
         fontScale: backend.previewFontScale
+        darkMode: backend.darkMode
     }
 
     Binding {
@@ -47,21 +48,17 @@ Item {
             Flow {
                 Layout.fillWidth: true
                 spacing: Math.round(8 * page.uiScale)
-                CheckBox {
+                OptionCheckBox {
                     objectName: "romajiOption"
                     text: "汉字加注罗马音"
                     checked: backend.romaji
                     onToggled: backend.romaji = checked
-                    font.pixelSize: Math.round(16 * page.uiScale)
-                    palette.highlight: "#2d6152"
                 }
-                CheckBox {
+                OptionCheckBox {
                     objectName: "fullRomajiOption"
                     text: "全部内容加注罗马音"
                     checked: backend.fullRomaji
                     onToggled: backend.fullRomaji = checked
-                    font.pixelSize: Math.round(16 * page.uiScale)
-                    palette.highlight: "#2d6152"
                 }
                 ActionButton {
                     objectName: "paperZoomButton"
@@ -82,7 +79,7 @@ Item {
                     Layout.minimumWidth: 0
                     Layout.minimumHeight: 0
                     Layout.preferredHeight: Math.round(400 * page.uiScale)
-                    radius: 16; color: "#ffffff"; border.color: "#e1e6dc"
+                    radius: 16; color: Theme.surface; border.color: Theme.border
                     ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: Math.round(16 * page.uiScale)
@@ -91,15 +88,15 @@ Item {
                             Layout.fillWidth: true
                             Text {
                                 text: "原文"; font.pixelSize: Math.round(18 * page.uiScale)
-                                font.weight: Font.DemiBold; color: "#364b3c"
+                                font.weight: Font.DemiBold; color: Theme.heading
                             }
                             Item { Layout.fillWidth: true }
                             Text {
                                 text: Array.from(editor.text).length + " / 20,000"
-                                color: "#65766a"; font.pixelSize: Math.round(14 * page.uiScale)
+                                color: Theme.secondary; font.pixelSize: Math.round(14 * page.uiScale)
                             }
                         }
-                        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: "#edf0e9" }
+                        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.divider }
                         Flickable {
                             id: inputScroll
                             objectName: "originalPaperScroll"
@@ -117,7 +114,7 @@ Item {
                             Rectangle {
                                 x: inputScroll.contentX; y: inputScroll.contentY
                                 width: inputScroll.width; height: inputScroll.height
-                                color: "#edf0ea"; z: -1
+                                color: Theme.paperWell; z: -1
                             }
 
                             function ensureCursorVisible() {
@@ -148,7 +145,8 @@ Item {
                                     editor.y + editor.height + preview.paperMarginTop + preview.contentPadding)
                                 scale: inputScroll.paperZoom
                                 transformOrigin: Item.TopLeft
-                                color: "#ffffff"; border.color: "#d2dad2"
+                                color: preview.paperColor
+                                border.color: Theme.dark ? Theme.border : "#d2dad2"
                                 TextArea {
                                     id: editor
                                     objectName: "lyricsInput"
@@ -161,10 +159,12 @@ Item {
                                     onCursorRectangleChanged: inputScroll.ensureCursorVisible()
                                     onActiveFocusChanged: if (activeFocus) inputScroll.ensureCursorVisible()
                                     placeholderText: "在这里粘贴日语歌词…\n\n注音结果会显示在右侧。"
-                                    placeholderTextColor: "#839184"
+                                    placeholderTextColor: Theme.dark ? Theme.secondary : "#839184"
                                     wrapMode: TextEdit.Wrap
                                     selectByMouse: true
-                                    color: "#3d493e"; selectionColor: "#d6e5d1"; selectedTextColor: "#243d32"
+                                    color: preview.textColor
+                                    selectionColor: Theme.dark ? Theme.selected : "#d6e5d1"
+                                    selectedTextColor: Theme.dark ? preview.textColor : "#243d32"
                                     font.family: "Noto Sans CJK JP"; font.pixelSize: 16
                                     padding: 0
                                     background: Item {}
@@ -178,7 +178,7 @@ Item {
                     Layout.minimumWidth: 0
                     Layout.minimumHeight: 0
                     Layout.preferredHeight: Math.round(400 * page.uiScale)
-                    radius: 16; color: "#ffffff"; border.color: "#e1e6dc"
+                    radius: 16; color: Theme.surface; border.color: Theme.border
                     ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: Math.round(16 * page.uiScale)
@@ -187,15 +187,15 @@ Item {
                             Layout.fillWidth: true
                             Text {
                                 text: "注音稿"; font.pixelSize: Math.round(18 * page.uiScale)
-                                font.weight: Font.DemiBold; color: "#364b3c"
+                                font.weight: Font.DemiBold; color: Theme.heading
                             }
                             Item { Layout.fillWidth: true }
                         }
-                        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: "#edf0e9" }
+                        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.divider }
                         Item {
                             Layout.fillWidth: true; Layout.fillHeight: true
                             Layout.minimumHeight: 0
-                            Rectangle { anchors.fill: parent; color: "#edf0ea" }
+                            Rectangle { anchors.fill: parent; color: Theme.paperWell }
                             ListView {
                                 id: output
                                 objectName: "annotationScroll"
@@ -225,7 +225,7 @@ Item {
                                             y: preview.paperMarginTop + preview.contentPadding
                                             visible: index === 0 && backend.segments.length === 0
                                             text: "注音结果将在这里显示"
-                                            font.pixelSize: 16; color: "#839184"
+                                            font.pixelSize: 16; color: Theme.dark ? Theme.secondary : "#839184"
                                         }
                                     }
                                 }
@@ -264,6 +264,13 @@ Item {
                     text: "复制到 Word"
                     enabled: backend.canExport
                     onClicked: backend.copyForWord()
+                }
+                ActionButton {
+                    objectName: "printButton"
+                    compact: true
+                    text: "打印"
+                    enabled: backend.canExport
+                    onClicked: backend.printDocument()
                 }
                 ActionButton {
                     objectName: "exportDocxButton"

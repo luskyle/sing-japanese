@@ -11,7 +11,11 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QGuiApplication>
+#include <QPrintDialog>
+#include <QPrinter>
+#include <QSettings>
 #include <QUuid>
+#include <QWindow>
 
 #include <cmath>
 
@@ -69,6 +73,10 @@ QVariantMap entry(const KanaRow &row, int index, bool katakana)
 
 Backend::Backend(QObject *parent) : QObject(parent)
 {
+    QSettings settings;
+    darkMode_ = settings.value(QStringLiteral("appearance/darkMode"), true).toBool();
+    if (settings.status() != QSettings::NoError)
+        fail(QStringLiteral("无法读取外观设置。请检查应用配置文件。"));
     connect(&player_, &QMediaPlayer::stateChanged, this, &Backend::playingChanged);
     connect(&player_, QOverload<QMediaPlayer::Error>::of(&QMediaPlayer::error), this,
             [this](QMediaPlayer::Error) {
@@ -79,6 +87,20 @@ Backend::Backend(QObject *parent) : QObject(parent)
 #endif
                  .arg(player_.errorString()));
     });
+}
+
+void Backend::setDarkMode(bool value)
+{
+    if (darkMode_ == value) return;
+    QSettings settings;
+    settings.setValue(QStringLiteral("appearance/darkMode"), value);
+    settings.sync();
+    if (settings.status() != QSettings::NoError) {
+        fail(QStringLiteral("无法保存外观设置。请检查应用配置目录的写入权限。"));
+        return;
+    }
+    darkMode_ = value;
+    emit darkModeChanged();
 }
 
 QStringList Backend::rowNames() const
@@ -324,6 +346,38 @@ bool Backend::copyForWord()
         .arg(pages.size());
     emit lyricsChanged();
     return true;
+}
+
+void Backend::printDocument()
+{
+    clearError();
+    if (!canExport()) { fail(QStringLiteral("请先完成当前原文的注音。")); return; }
+    QPrinter printer(QPrinter::HighResolution);
+    printer.setPageLayout(annotationPageLayout());
+    printer.setDocName(QStringLiteral("唱日语 - 注音稿"));
+    const int perPage = annotationLinesPerPage(previewWidth_, annotationOptions_);
+    const int pageCount = (layoutAnnotation(annotated_, previewWidth_, annotationOptions_).size()
+                           + perPage - 1) / perPage;
+    QWindow *parentWindow = QGuiApplication::focusWindow();
+    QPrintDialog dialog(&printer);
+    dialog.setWindowTitle(QStringLiteral("打印注音稿"));
+    dialog.setWindowModality(Qt::ApplicationModal);
+    dialog.setMinMax(1, pageCount);
+    dialog.setOption(QAbstractPrintDialog::PrintPageRange);
+    dialog.setOption(QAbstractPrintDialog::PrintCollateCopies);
+    if (parentWindow) {
+        dialog.winId();
+        dialog.windowHandle()->setTransientParent(parentWindow);
+    }
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    QString error;
+    if (!printAnnotatedDocument(printer, annotated_, &error, annotationOptions_, previewWidth_)) {
+        fail(error);
+        return;
+    }
+    status_ = QStringLiteral("已提交注音稿到打印机。");
+    emit lyricsChanged();
 }
 
 void Backend::setRomaji(bool value)

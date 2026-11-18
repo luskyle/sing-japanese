@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import SingJapanese 1.0
 
 Button {
     id: control
@@ -17,16 +18,16 @@ Button {
     contentItem: Text {
         text: control.text
         font: control.font
-        color: !control.enabled ? "#a5aaa6" : control.primary ? "#ffffff" : control.selected ? "#245d4f" : "#505b55"
+        color: !control.enabled ? Theme.disabledText : control.primary ? Theme.primaryText : control.selected ? Theme.selectedText : Theme.text
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
     }
     background: Rectangle {
         radius: 9
-        color: !control.enabled ? "#edf0ec" : control.primary ? (control.down ? "#204b40" : control.hovered ? "#3d7462" : "#2d6152")
-               : control.selected ? "#e4eee6" : control.hovered ? "#e9ede6" : "#f5f6f1"
+        color: !control.enabled ? Theme.disabledSurface : control.primary ? (control.down ? Theme.primaryPressed : control.hovered ? Theme.primaryHover : Theme.primary)
+               : control.selected ? Theme.selected : control.hovered ? Theme.hover : Theme.button
         border.width: control.activeFocus ? 2 : 1
-        border.color: control.activeFocus ? "#618c77" : control.primary ? "transparent" : "#dce2d8"
+        border.color: control.activeFocus ? Theme.accent : control.primary ? "transparent" : Theme.border
         Behavior on color { ColorAnimation { duration: 120 } }
     }
 }

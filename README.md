@@ -5,7 +5,7 @@
 [![最新版本](https://img.shields.io/github/v/release/luskyle/sing-japanese)](https://github.com/luskyle/sing-japanese/releases/latest)
 
 轻量离线日语桌面工具：一屏学习假名，为歌词和日语文本添加假名、罗马音，并导出排版一致的 DOCX / A4 PDF。
-暖白与鼠尾草绿配色，只有假名学习、歌词注音两个页面；无需账号，不上传文本。
+支持暖白、鼠尾草绿配色与深色模式，只有假名学习、歌词注音两个页面；无需账号，不上传文本。
 
 **[项目网站](https://luskyle.github.io/sing-japanese/) · [下载安装包](https://github.com/luskyle/sing-japanese/releases/latest) · [反馈问题](https://github.com/luskyle/sing-japanese/issues)**
 
@@ -36,6 +36,7 @@
 - 点击假名播放随程序打包的本地真人发音。
 - 粘贴日语文本，使用本机 MeCab/IPADIC 标注振假名。
 - 界面支持系统高 DPI 缩放，控件随窗口放大；选项自动换行，假名自动分栏，长文在纸张区域内滚动。
+- 首次启动默认深色模式；右上角「深色模式 / 浅色模式」随时切换外观，重启后保留选择。原文与注音稿纸张也随主题切换，深色模式使用深底白字；打印、导出与复制到 Word 仍使用白底排版。
 - 默认窗口为 1360 × 900 逻辑像素（小屏幕自动适配）。
 - 窗口最小尺寸为 1120 × 800 逻辑像素，不能继续缩小；屏幕可用区域不足时，以下限不超过可用区域为准。系统高 DPI 缩放会自动换算为实际像素。
 - 原文按 A4 页宽连续编辑；注音稿按 A4 纸张与 18 毫米页边距分页预览。正文使用 12 磅，注音使用 7.5 磅。
@@ -47,6 +48,7 @@
   两项独立勾选、即时生效，均不替代原有假名；同时勾选时保留两个罗马音层。
 - 保留输入中的标点、空格及换行；未知汉字词保留原文并以点线标记。
 - 支持预览 DOCX、预览 PDF、导出 DOCX / PDF，以及复制全部注音稿到 Word。
+- 注音完成后点击「打印」或按 `Ctrl+P`（macOS 为 `⌘P`），直接打开系统打印对话框，选择打印机、页码范围和份数。
 - 不采集或保存学习记录。文档预览使用临时文件，正常退出时清理；导出的文件和剪贴板内容由用户管理。
 
 注音采用词典中的常规读音，人名、造词、歧义用法及歌手特殊唱法可能不准确。
@@ -68,15 +70,22 @@
 PDF 也使用同样的 A4 排版。极长且不可拆分的词组会等比缩小以免裁切。
 导出文件可在程序退出后继续使用；预览临时文件不可作为永久保存。
 
+### 打印
+
+完成注音并选好罗马音层后，点击底部「打印」。程序直接调用系统打印对话框，无需先导出或打开阅读器。
+打印与预览共用 A4 排版，保留注音对应关系、换行和分页；若打印机的可用区域较小，会等比缩小而不重新排版。
+取消对话框不会发送打印任务。修改原文后需重新注音，才能打印新的内容。
+实际纸张输出需要已安装并配置好的系统打印机；是否提供「打印到文件」由系统打印服务决定。
+
 ## 下载与安装
 
 从 [最新 Release](https://github.com/luskyle/sing-japanese/releases/latest) 下载对应平台文件：
 
 | 平台 | 文件 | 安装与运行 |
 | --- | --- | --- |
-| Windows 10 / 11 x64 | `sing-japanese-0.3.1-Windows-x86_64.zip` | 完整解压后运行 `SingJapanese/sing-japanese.exe` |
-| macOS 12+ Intel | `sing-japanese-0.3.1-macOS-x86_64.dmg` | 打开 DMG，将「唱日语」拖入 Applications |
-| Ubuntu / Debian x86_64 | `sing-japanese-0.3.1-Linux.deb` | 使用下面的 `apt` 命令安装 |
+| Windows 10 / 11 x64 | `sing-japanese-0.4.0-Windows-x86_64.zip` | 完整解压后运行 `SingJapanese/sing-japanese.exe` |
+| macOS 12+ Intel | `sing-japanese-0.4.0-macOS-x86_64.dmg` | 打开 DMG，将「唱日语」拖入 Applications |
+| Ubuntu / Debian x86_64 | `sing-japanese-0.4.0-Linux.deb` | 使用下面的 `apt` 命令安装 |
 
 Windows 和 macOS 包内置 Qt、MeCab、UTF-8 IPADIC 和日语字体，不需要另外配置词典。
 Windows / macOS 录音使用 PCM WAV，无需额外的 Ogg 解码器。**不要只复制 EXE 或应用包中的单个文件。**
@@ -90,7 +99,7 @@ Windows 包未签名，可能出现 SmartScreen 提示。macOS 包仅临时签�
 从 [最新 Release](https://github.com/luskyle/sing-japanese/releases/latest) 下载 Debian 安装包后，在安装包所在目录执行：
 
 ```sh
-sudo apt install ./sing-japanese-0.3.1-Linux.deb
+sudo apt install ./sing-japanese-0.4.0-Linux.deb
 sing-japanese
 ```
 
@@ -158,7 +167,7 @@ macOS Intel 使用 Qt 5.15.2 与 Homebrew 的 MeCab / Minizip，以及仅构建�
 
 - [桌面 CI](.github/workflows/ci.yml)：推送到 `main`、提交 PR 或手动触发后，在 Linux、Windows、macOS 原生 runner 上构建，运行 UI 和文档测试，并上传对应发行包。
 - [Pages 工作流](.github/workflows/pages.yml)：`docs/` 或站点工作流变更后自动校验并部署静态网站；PR 仅构建，不部署。网站地址为 <https://luskyle.github.io/sing-japanese/>。
-- [Release 工作流](.github/workflows/release.yml)：推送 `vX.Y.Z` 标签后，核对标签与 CMake 版本；仅当三个平台均构建、测试、打包成功后，汇总 Debian、Windows ZIP、macOS DMG 与 SHA-256 校验文件，使用仓库中的[发版说明](.github/release-notes/v0.3.1.md)发布正式 Release。
+- [Release 工作流](.github/workflows/release.yml)：推送 `vX.Y.Z` 标签后，核对标签与 CMake 版本；仅当三个平台均构建、测试、打包成功后，汇总 Debian、Windows ZIP、macOS DMG 与 SHA-256 校验文件，使用仓库中的[发版说明](.github/release-notes/v0.4.0.md)发布正式 Release。
   也可在 Actions 中手动指定已有版本标签重试；不会覆盖已正式发布的版本。
 
 网站直接部署 [`docs/`](docs/)，无需 Node.js、第三方主题或外部字体。新仓库需在 Settings → Pages 中将 Source 设为 GitHub Actions。
