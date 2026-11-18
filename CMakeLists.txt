@@ -157,8 +157,16 @@ target_link_libraries(sing-japanese-tests PRIVATE
   Qt5::Widgets Qt5::Quick Qt5::Qml Qt5::Multimedia Qt5::PrintSupport "${MECAB_LIBRARY}" "${MINIZIP_LIBRARY}" ZLIB::ZLIB
 )
 add_test(NAME sing-japanese-tests COMMAND sing-japanese-tests)
+# Native print engines on Windows/macOS require their platform integration.
+set(SING_JAPANESE_TEST_PLATFORM offscreen)
+if(WIN32)
+  set(SING_JAPANESE_TEST_PLATFORM windows)
+elseif(APPLE)
+  set(SING_JAPANESE_TEST_PLATFORM cocoa)
+endif()
 set_tests_properties(sing-japanese-tests PROPERTIES
-  ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
+  ENVIRONMENT "QT_QPA_PLATFORM=${SING_JAPANESE_TEST_PLATFORM};QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1"
+  TIMEOUT 180)
 
 add_executable(sing-japanese-document-tests
   tests/test_documents.cpp
@@ -175,7 +183,8 @@ target_link_libraries(sing-japanese-document-tests PRIVATE
   Qt5::Widgets Qt5::Quick Qt5::PrintSupport "${MECAB_LIBRARY}" "${MINIZIP_LIBRARY}" ZLIB::ZLIB)
 add_test(NAME sing-japanese-document-tests COMMAND sing-japanese-document-tests)
 set_tests_properties(sing-japanese-document-tests PROPERTIES
-  ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+  ENVIRONMENT "QT_QPA_PLATFORM=${SING_JAPANESE_TEST_PLATFORM};QT_QUICK_BACKEND=software"
+  TIMEOUT 180)
 
 if(SING_JAPANESE_DICTIONARY)
   foreach(APP_TARGET sing-japanese sing-japanese-tests sing-japanese-document-tests)

@@ -163,6 +163,11 @@ macOS Intel 使用 Qt 5.15.2 与 Homebrew 的 MeCab / Minizip，以及仅构建�
 脚本部署 Qt/QML 插件和动态库、保留第三方许可，并对打包后的应用执行启动、注音、导出与音频服务冒烟测试。
 命令行 `sing-japanese --smoke-test` 用于发行包验证，执行后自动退出，不保存用户内容。
 
+打印回归测试在 Windows / macOS 使用原生 `windows` / `cocoa` 平台插件，需要可用桌面会话；
+不能强制使用 `offscreen`，原生打印引擎依赖对应平台集成。Linux 继续使用无界面测试。
+三平台均验证打印渲染、页码范围与份数；打印按钮、快捷键和取消对话框的自动化验证在 Linux 执行。
+Windows / macOS 系统打印面板不能通过 Qt 的 `reject()` 自动关闭，不在 CI 中交互操作；实际硬件出纸仍需本机验证。
+
 ## GitHub Pages 与 CI/CD
 
 - [桌面 CI](.github/workflows/ci.yml)：推送到 `main`、提交 PR 或手动触发后，在 Linux、Windows、macOS 原生 runner 上构建，运行 UI 和文档测试，并上传对应发行包。
@@ -185,7 +190,7 @@ docs/                # GitHub Pages 静态网站与真实运行截图
 .github/workflows/   # 桌面 CI、Pages 部署与 Release 发布
 ```
 
-歌词注音页支持 `Ctrl+Enter` 注音、`Ctrl+S` 导出当前结果。
+歌词注音页支持 `Ctrl+Enter` 注音、`Ctrl+S` 导出当前结果、`Ctrl+P` 打印（macOS 为 `⌘P`）。
 修改原文后必须重新注音再导出；未知汉字词以点线标记。
 
 发音录音来自 Wikimedia Commons，录音者为 Hakatanoshio117117，按 Public Domain 发布。

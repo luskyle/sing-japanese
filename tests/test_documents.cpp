@@ -470,12 +470,12 @@ void checkDocuments(const QString &directory)
                                          directory + "/" + name + ".pdf", directory + "/" + name});
             require(printRender.waitForFinished() && printRender.exitCode() == 0,
                     "printed document must render for comparison with the A4 preview");
-            const QImage printed = QImage(directory + "/" + name + ".png").convertToFormat(QImage::Format_RGB32);
+            const QImage renderedPrint = QImage(directory + "/" + name + ".png").convertToFormat(QImage::Format_RGB32);
             const int expectedPage = name == "printed-range" || name == "printed-uncollated" ? 1 : 0;
             const QImage expected = QImage::fromData(pages.at(expectedPage).png).convertToFormat(QImage::Format_RGB32);
             for (const QColor &color : {QColor(35, 38, 42), QColor(74, 79, 87),
                                         QColor(45, 97, 82), QColor(49, 91, 126)}) {
-                const QRect actual = inkBounds(printed, color);
+                const QRect actual = inkBounds(renderedPrint, color);
                 const QRect preview = inkBounds(expected, color).translated(annotationPrintableRect().topLeft() * 3);
                 require(!actual.isEmpty() && !preview.isEmpty()
                             && std::abs(actual.left() - preview.left()) <= 5
